@@ -120,6 +120,15 @@
             </button>
         </div>
 
+        <div class="detail-page" id="detailPage">
+            <div class="detail-back" id="detailBackBtn">←</div>
+            <div class="detail-swiper" id="detailSwiper"></div>
+            <div class="detail-actions">
+                <button class="detail-action-btn edit" id="detailEditBtn">编辑</button>
+                <button class="detail-action-btn delete" id="detailDeleteBtn">删除</button>
+            </div>
+        </div>
+
         <div class="date-picker-modal" id="datePickerModal">
             <div class="date-picker-content">
                 <div class="date-picker-title">选择器</div>
@@ -198,6 +207,16 @@
             <button class="account-action-btn primary" id="switchAccountBtn" type="button">切换账号</button>
             <button class="account-action-btn danger" id="logoutBtn" type="button">注销</button>
             <button class="account-action-btn" id="accountActionCancelBtn" type="button">取消</button>
+        </div>
+    </div>
+    <div class="confirm-modal" id="confirmModal">
+        <div class="confirm-card">
+            <div class="confirm-title">确认操作</div>
+            <div class="confirm-message" id="confirmMessage">确认继续吗？</div>
+            <div class="confirm-actions">
+                <button class="confirm-btn cancel" id="confirmCancelBtn" type="button">取消</button>
+                <button class="confirm-btn danger" id="confirmOkBtn" type="button">确认删除</button>
+            </div>
         </div>
     </div>
 

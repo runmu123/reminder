@@ -1,10 +1,12 @@
-import { state, addEvent, resetForm, setEvents, setCurrentUser } from './state.js';
+import { state, addEvent, resetForm, setEvents, setCurrentUser, saveEvents } from './state.js';
 import { showToast } from './toast.js';
-import { loginOrRegister, upsertEvent, upsertUserEventLink, fetchUserEvents } from './supabase.js';
+import { loginOrRegister, upsertEvent, upsertUserEventLink, fetchUserEvents, deleteUserEventLink, deleteEventByName } from './supabase.js';
 import { 
   renderClock, 
   renderDate, 
   renderCountdownList, 
+  getEventDisplayData,
+  formatDateWithWeekday,
   renderTargetDate,
   updateCalendarToggle,
   switchToAddPage,
@@ -34,6 +36,13 @@ const FORCE_REFRESH_ASSETS = [
 ];
 const RELOAD_PARAM = '__reload';
 let lastCountdownDateKey = '';
+let detailEventIndex = null;
+let editingEventIndex = null;
+let editingOriginalName = '';
+let confirmResolver = null;
+let detailSwipeIndex = 0;
+let detailSwipeCardCount = 0;
+let detailSwipeGoTo = null;
 
 export function initClock() {
   renderDate();
@@ -109,6 +118,13 @@ export function initEventListeners() {
   });
 
   document.getElementById('saveBtn').addEventListener('click', handleSaveEvent);
+  document.getElementById('countdownList').addEventListener('click', handleCountdownItemClick);
+  document.getElementById('detailBackBtn').addEventListener('click', closeDetailPage);
+  document.getElementById('detailEditBtn').addEventListener('click', handleEditFromDetail);
+  document.getElementById('detailDeleteBtn').addEventListener('click', () => {
+    void handleDeleteFromDetail();
+  });
+  window.addEventListener('keydown', handleDetailKeydown);
 
   document.getElementById('datePickerCancel').addEventListener('click', () => {
     closeDatePicker();
@@ -193,6 +209,25 @@ export function initEventListeners() {
       }
     });
   }
+
+  const confirmModal = document.getElementById('confirmModal');
+  if (confirmModal) {
+    confirmModal.addEventListener('click', (e) => {
+      if (e.target.id === 'confirmModal') {
+        closeConfirmModal(false);
+      }
+    });
+  }
+
+  const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+  if (confirmCancelBtn) {
+    confirmCancelBtn.addEventListener('click', () => closeConfirmModal(false));
+  }
+
+  const confirmOkBtn = document.getElementById('confirmOkBtn');
+  if (confirmOkBtn) {
+    confirmOkBtn.addEventListener('click', () => closeConfirmModal(true));
+  }
 }
 
 async function handleSaveEvent() {
@@ -206,7 +241,7 @@ async function handleSaveEvent() {
   }
 
   const event = {
-    id: Date.now(),
+    id: editingEventIndex !== null ? state.events[editingEventIndex].id : Date.now(),
     name: eventName,
     targetDate: state.selectedDate.toISOString(),
     calendarType: state.selectedCalendarType,
@@ -215,9 +250,17 @@ async function handleSaveEvent() {
     createdAt: new Date().toISOString()
   };
 
-  addEvent(event);
+  if (editingEventIndex !== null) {
+    state.events[editingEventIndex] = event;
+    saveEvents();
+  } else {
+    addEvent(event);
+  }
   if (state.currentUser?.user_name) {
     try {
+      if (editingEventIndex !== null && editingOriginalName && editingOriginalName !== event.name) {
+        await removeEventFromCloud(editingOriginalName, state.currentUser.user_name);
+      }
       await uploadEventToCloud(event, state.currentUser.user_name);
       await pullEventsFromCloud(state.currentUser.user_name);
       showToast('事件已保存并同步云端', 'success');
@@ -231,6 +274,8 @@ async function handleSaveEvent() {
   
   resetForm();
   resetFormUI();
+  editingEventIndex = null;
+  editingOriginalName = '';
   localStorage.setItem(ACTIVE_PAGE_KEY, 'schedule');
   switchToMainPage();
   renderCountdownList();
@@ -333,6 +378,268 @@ function handleLogout() {
   showToast('已注销', 'info');
 }
 
+function handleCountdownItemClick(e) {
+  const item = e.target.closest('.countdown-item[data-index]');
+  if (!item) return;
+  const index = Number(item.dataset.index);
+  if (!Number.isInteger(index) || !state.events[index]) return;
+  openDetailPage(index);
+}
+
+function openDetailPage(index) {
+  detailEventIndex = index;
+  renderDetailPage(state.events[index]);
+  document.querySelector('.container')?.classList.add('detail-mode');
+  document.getElementById('mainPage').classList.add('hidden');
+  document.getElementById('addEventPage').classList.remove('active');
+  document.getElementById('myPage').classList.remove('active');
+  document.getElementById('detailPage').classList.add('active');
+}
+
+function closeDetailPage() {
+  detailEventIndex = null;
+  detailSwipeCardCount = 0;
+  detailSwipeGoTo = null;
+  document.querySelector('.container')?.classList.remove('detail-mode');
+  document.getElementById('detailPage').classList.remove('active');
+  switchToMainPage();
+}
+
+function renderDetailPage(event) {
+  const swiper = document.getElementById('detailSwiper');
+  if (!swiper) return;
+  const cards = buildDetailCards(event);
+  swiper.innerHTML = cards.map(renderDetailCardHtml).join('');
+  detailSwipeIndex = 0;
+  swiper.scrollLeft = 0;
+  bindDetailSwipe(cards.length);
+}
+
+function buildDetailCards(event) {
+  const today = toDateOnly(new Date());
+  const target = toDateOnly(new Date(event.targetDate));
+  const display = getEventDisplayData(event, today);
+  const cards = [];
+  const diff = dayDiff(today, target);
+  const isPast = diff < 0;
+  const repeatEnabled = ['每周', '每月', '每年'].includes(event.repeatType);
+
+  if (isPast) {
+    cards.push({
+      tone: 'past',
+      title: `${event.name}已经`,
+      days: display.mainDays,
+      footLines: [`起始日：${formatDateWithWeekday(target)}`],
+    });
+  }
+
+  if (!isPast || repeatEnabled) {
+    const nextDate = display.nextDate || target;
+    const futureDays = Math.max(0, dayDiff(today, nextDate));
+    const footLines = [];
+    if (event.calendarType === 'lunar') {
+      footLines.push(`农历时间：${getLunarDateText(nextDate)}`);
+      footLines.push(`下一次的公历时间：${formatDateWithWeekday(nextDate)}`);
+    }
+    cards.push({
+      tone: 'future',
+      title: `${event.name}还有`,
+      days: futureDays,
+      footLines,
+    });
+  }
+
+  if (cards.length === 0) {
+    cards.push({
+      tone: 'future',
+      title: `${event.name}还有`,
+      days: Math.max(0, diff),
+      footLines: [],
+    });
+  }
+
+  return cards;
+}
+
+function renderDetailCardHtml(card) {
+  const foot = card.footLines.length > 0
+    ? card.footLines.map((line) => `<div>${escapeHtmlForHtml(line)}</div>`).join('')
+    : '<div>&nbsp;</div>';
+  return `
+    <div class="detail-slide">
+      <div class="detail-card">
+        <div class="detail-card-header ${card.tone}">${escapeHtmlForHtml(card.title)}</div>
+        <div class="detail-card-main">${Number(card.days) || 0}</div>
+        <div class="detail-card-foot">${foot}</div>
+      </div>
+    </div>
+  `;
+}
+
+function bindDetailSwipe(cardCount) {
+  const swiper = document.getElementById('detailSwiper');
+  if (!swiper) return;
+  detailSwipeCardCount = cardCount;
+
+  if (swiper._removeSwipeListeners) {
+    swiper._removeSwipeListeners();
+  }
+
+  let startX = null;
+  let tracking = false;
+
+  const goToIndex = (nextIndex) => {
+    detailSwipeIndex = Math.max(0, Math.min(cardCount - 1, nextIndex));
+    swiper.scrollTo({
+      left: detailSwipeIndex * swiper.clientWidth,
+      behavior: 'smooth',
+    });
+  };
+  detailSwipeGoTo = goToIndex;
+
+  const onTouchStart = (e) => {
+    if (!e.touches || e.touches.length === 0) return;
+    startX = e.touches[0].clientX;
+    tracking = true;
+  };
+
+  const onTouchEnd = (e) => {
+    if (!tracking || startX === null) return;
+    const endX = e.changedTouches && e.changedTouches.length > 0
+      ? e.changedTouches[0].clientX
+      : startX;
+    const deltaX = endX - startX;
+    if (deltaX < 0) {
+      goToIndex(detailSwipeIndex + 1);
+    } else if (deltaX > 0) {
+      goToIndex(detailSwipeIndex - 1);
+    } else {
+      goToIndex(detailSwipeIndex);
+    }
+    startX = null;
+    tracking = false;
+  };
+
+  const onTouchCancel = () => {
+    startX = null;
+    tracking = false;
+  };
+
+  swiper.addEventListener('touchstart', onTouchStart, { passive: true });
+  swiper.addEventListener('touchend', onTouchEnd);
+  swiper.addEventListener('touchcancel', onTouchCancel);
+
+  swiper._removeSwipeListeners = () => {
+    swiper.removeEventListener('touchstart', onTouchStart);
+    swiper.removeEventListener('touchend', onTouchEnd);
+    swiper.removeEventListener('touchcancel', onTouchCancel);
+  };
+}
+
+function handleDetailKeydown(e) {
+  const detailPage = document.getElementById('detailPage');
+  if (!detailPage || !detailPage.classList.contains('active')) return;
+  if (!detailSwipeGoTo || detailSwipeCardCount <= 1) return;
+
+  if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    detailSwipeGoTo(detailSwipeIndex + 1);
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    detailSwipeGoTo(detailSwipeIndex - 1);
+  }
+}
+
+function escapeHtmlForHtml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function toDateOnly(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function dayDiff(fromDate, toDate) {
+  const from = toDateOnly(fromDate).getTime();
+  const to = toDateOnly(toDate).getTime();
+  return Math.round((to - from) / (1000 * 60 * 60 * 24));
+}
+
+function handleEditFromDetail() {
+  if (detailEventIndex === null || !state.events[detailEventIndex]) return;
+  const event = state.events[detailEventIndex];
+  editingEventIndex = detailEventIndex;
+  editingOriginalName = event.name;
+  detailEventIndex = null;
+
+  document.getElementById('eventName').value = event.name;
+  document.getElementById('includeStartDay').checked = !!event.includeStartDay;
+  state.selectedDate = new Date(event.targetDate);
+  state.selectedCalendarType = event.calendarType || 'solar';
+  state.currentRepeatIndex = Math.max(0, REPEAT_OPTIONS.indexOf(event.repeatType));
+
+  updateRepeatButton();
+  renderTargetDate();
+  updateCalendarToggle();
+
+  document.getElementById('detailPage').classList.remove('active');
+  switchToAddPage();
+}
+
+async function handleDeleteFromDetail() {
+  if (detailEventIndex === null || !state.events[detailEventIndex]) return;
+  const event = state.events[detailEventIndex];
+  const ok = await openConfirmModal(`确认删除事件「${event.name}」吗？删除后不可恢复。`);
+  if (!ok) return;
+
+  state.events.splice(detailEventIndex, 1);
+  saveEvents();
+  detailEventIndex = null;
+  closeDetailPage();
+  renderCountdownList();
+
+  if (state.currentUser?.user_name) {
+    try {
+      await removeEventFromCloud(event.name, state.currentUser.user_name);
+    } catch (error) {
+      console.error(error);
+      showToast('本地已删除，云端删除失败', 'error');
+      return;
+    }
+  }
+  showToast('事件已删除', 'success');
+}
+
+function openConfirmModal(message) {
+  const modal = document.getElementById('confirmModal');
+  const text = document.getElementById('confirmMessage');
+  if (!modal) return Promise.resolve(false);
+  if (text) {
+    text.textContent = message;
+  }
+  modal.classList.add('active');
+  return new Promise((resolve) => {
+    confirmResolver = resolve;
+  });
+}
+
+function closeConfirmModal(result) {
+  const modal = document.getElementById('confirmModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+  if (confirmResolver) {
+    const resolve = confirmResolver;
+    confirmResolver = null;
+    resolve(result);
+  }
+}
+
 function formatSolarDateCompact(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -385,6 +692,11 @@ async function uploadEventToCloud(event, userName) {
   const dbEvent = toDbEventRow(event);
   await upsertEvent(dbEvent);
   await upsertUserEventLink(userName, dbEvent.event_name);
+}
+
+async function removeEventFromCloud(eventName, userName) {
+  await deleteUserEventLink(userName, eventName);
+  await deleteEventByName(eventName);
 }
 
 async function pullEventsFromCloud(userName) {

@@ -102,3 +102,24 @@ export async function fetchUserEvents(userName) {
   });
   return rows || [];
 }
+
+export async function deleteUserEventLink(userName, eventName) {
+  await request('reminder_user_events', {
+    method: 'DELETE',
+    params: {
+      user_name: `eq.${userName}`,
+      event_name: `eq.${eventName}`,
+    },
+    prefer: 'return=minimal',
+  });
+}
+
+export async function deleteEventByName(eventName) {
+  await request('reminder_events', {
+    method: 'DELETE',
+    params: {
+      event_name: `eq.${eventName}`,
+    },
+    prefer: 'return=minimal',
+  });
+}

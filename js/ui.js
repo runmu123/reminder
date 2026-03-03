@@ -33,7 +33,7 @@ export function renderCountdownList() {
   let html = '';
   const today = toDateOnly(new Date());
 
-  state.events.forEach(event => {
+  state.events.forEach((event, index) => {
     const safeName = escapeHtml(event.name);
     const display = buildEventDisplay(event, today);
     const itemClass = display.isToday ? 'countdown-item today' : 'countdown-item';
@@ -51,7 +51,7 @@ export function renderCountdownList() {
       : '';
 
     html += `
-      <div class="${itemClass}">
+      <div class="${itemClass}" data-index="${index}">
         <div class="countdown-title">${safeName}</div>
         ${mainLine}
         ${todayLine}
@@ -62,6 +62,19 @@ export function renderCountdownList() {
   });
 
   container.innerHTML = html;
+}
+
+export function getEventDisplayData(event, today = new Date()) {
+  return buildEventDisplay(event, toDateOnly(today));
+}
+
+export function formatDateWithWeekday(date) {
+  const d = toDateOnly(date);
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day} ${weekdays[d.getDay()]}`;
 }
 
 function renderMetricLine(label, days, tone) {
@@ -278,6 +291,8 @@ export function switchToAddPage() {
   document.getElementById('mainPage').classList.add('hidden');
   document.getElementById('addEventPage').classList.add('active');
   document.getElementById('myPage').classList.remove('active');
+  const detailPage = document.getElementById('detailPage');
+  if (detailPage) detailPage.classList.remove('active');
   setActiveNav('schedule');
   renderTargetDate();
   updateCalendarToggle();
@@ -287,6 +302,8 @@ export function switchToMainPage() {
   document.getElementById('mainPage').classList.remove('hidden');
   document.getElementById('addEventPage').classList.remove('active');
   document.getElementById('myPage').classList.remove('active');
+  const detailPage = document.getElementById('detailPage');
+  if (detailPage) detailPage.classList.remove('active');
   setActiveNav('schedule');
 }
 
@@ -294,6 +311,8 @@ export function switchToMyPage() {
   document.getElementById('mainPage').classList.add('hidden');
   document.getElementById('addEventPage').classList.remove('active');
   document.getElementById('myPage').classList.add('active');
+  const detailPage = document.getElementById('detailPage');
+  if (detailPage) detailPage.classList.remove('active');
   setActiveNav('me');
 }
 
