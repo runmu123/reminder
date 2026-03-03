@@ -164,20 +164,26 @@ body {
 }
 
 .add-btn {
-  margin: 20px 15px;
-  padding: 15px;
-  background-color: var(--card-bg);
-  border-radius: 12px;
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 42px;
+  height: 42px;
+  border: none;
+  background-color: var(--primary-color);
+  border-radius: 50%;
   box-shadow: var(--shadow);
   text-align: center;
-  font-size: 16px;
-  color: var(--text-color);
+  font-size: 28px;
+  line-height: 42px;
+  color: #fff;
   cursor: pointer;
   transition: var(--transition);
+  z-index: 2;
 }
 
 .add-btn:hover {
-  background-color: #f0f0f0;
+  background-color: var(--primary-hover);
 }
 
 .nav-bar {
@@ -217,6 +223,10 @@ body {
 
 .main-page.hidden {
   display: none;
+}
+
+.main-page {
+  position: relative;
 }
 
 .add-event-page {
