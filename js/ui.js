@@ -24,16 +24,23 @@ export function renderDate() {
   const day = String(now.getDate()).padStart(2, '0');
   const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
   const weekday = weekdays[now.getDay()];
+  const lunar = Lunar.fromDate(now);
+  const lunarMonth = lunar.getMonthInChinese();
+  const lunarDay = lunar.getDayInChinese();
 
-  document.getElementById('date').textContent = `${month}月${day}日 ${weekday}`;
+  document.getElementById('date').textContent = `${month}月${day}日 ${weekday} | 农历${lunarMonth}月${lunarDay}`;
 }
 
 export function renderCountdownList() {
   const container = document.getElementById('countdownList');
   let html = '';
   const today = toDateOnly(new Date());
+  const keyword = String(state.searchKeyword || '').trim().toLowerCase();
 
   state.events.forEach((event, index) => {
+    if (keyword && !String(event.name || '').toLowerCase().includes(keyword)) {
+      return;
+    }
     const safeName = escapeHtml(event.name);
     const display = buildEventDisplay(event, today);
     const itemClass = display.isToday ? 'countdown-item today' : 'countdown-item';
@@ -60,6 +67,12 @@ export function renderCountdownList() {
       </div>
     `;
   });
+
+  if (!html) {
+    const emptyText = keyword ? '未找到匹配事件' : '暂无事件，点击右上角 + 添加';
+    container.innerHTML = `<div class="countdown-empty">${emptyText}</div>`;
+    return;
+  }
 
   container.innerHTML = html;
 }

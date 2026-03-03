@@ -24,6 +24,7 @@
 <body>
     <div class="container">
         <div class="main-page" id="mainPage">
+            <button class="search-btn" id="searchBtn" type="button" aria-label="搜索">🔍</button>
             <button class="add-btn" type="button">+</button>
             <div class="time-section">
                 <div class="date" id="date"></div>
@@ -210,6 +211,18 @@
             <div class="confirm-actions">
                 <button class="confirm-btn cancel" id="confirmCancelBtn" type="button">取消</button>
                 <button class="confirm-btn danger" id="confirmOkBtn" type="button">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="search-modal" id="searchModal">
+        <div class="search-card">
+            <div class="search-title">搜索事件</div>
+            <input class="search-input" id="searchInput" type="text" placeholder="按事件名称搜索">
+            <div class="search-actions">
+                <button class="search-btn-action clear" id="searchClearBtn" type="button">清空</button>
+                <button class="search-btn-action cancel" id="searchCancelBtn" type="button">取消</button>
+                <button class="search-btn-action confirm" id="searchConfirmBtn" type="button">搜索</button>
             </div>
         </div>
     </div>

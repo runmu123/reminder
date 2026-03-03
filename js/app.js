@@ -73,6 +73,7 @@ export function initEventListeners() {
     localStorage.setItem(ACTIVE_PAGE_KEY, 'schedule');
     switchToAddPage();
   });
+  document.getElementById('searchBtn')?.addEventListener('click', openSearchModal);
 
   document.getElementById('navSchedule').addEventListener('click', () => {
     localStorage.setItem(ACTIVE_PAGE_KEY, 'schedule');
@@ -228,6 +229,74 @@ export function initEventListeners() {
   if (confirmOkBtn) {
     confirmOkBtn.addEventListener('click', () => closeConfirmModal(true));
   }
+
+  const searchModal = document.getElementById('searchModal');
+  if (searchModal) {
+    searchModal.addEventListener('click', (e) => {
+      if (e.target.id === 'searchModal') {
+        closeSearchModal();
+      }
+    });
+  }
+
+  const searchCancelBtn = document.getElementById('searchCancelBtn');
+  if (searchCancelBtn) {
+    searchCancelBtn.addEventListener('click', closeSearchModal);
+  }
+
+  const searchConfirmBtn = document.getElementById('searchConfirmBtn');
+  if (searchConfirmBtn) {
+    searchConfirmBtn.addEventListener('click', applySearch);
+  }
+
+  const searchClearBtn = document.getElementById('searchClearBtn');
+  if (searchClearBtn) {
+    searchClearBtn.addEventListener('click', clearSearch);
+  }
+
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applySearch();
+      }
+    });
+  }
+}
+
+function openSearchModal() {
+  const modal = document.getElementById('searchModal');
+  const input = document.getElementById('searchInput');
+  if (!modal || !input) return;
+  input.value = state.searchKeyword || '';
+  modal.classList.add('active');
+  input.focus();
+  input.select();
+}
+
+function closeSearchModal() {
+  const modal = document.getElementById('searchModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+function applySearch() {
+  const input = document.getElementById('searchInput');
+  state.searchKeyword = input ? input.value.trim() : '';
+  closeSearchModal();
+  renderCountdownList();
+}
+
+function clearSearch() {
+  const input = document.getElementById('searchInput');
+  state.searchKeyword = '';
+  if (input) {
+    input.value = '';
+  }
+  closeSearchModal();
+  renderCountdownList();
 }
 
 async function handleSaveEvent() {

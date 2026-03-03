@@ -4,6 +4,7 @@ export const USER_STORAGE_KEY = 'reminderCurrentUser';
 export const state = {
   events: JSON.parse(localStorage.getItem(STORAGE_KEY)) || [],
   currentUser: JSON.parse(localStorage.getItem(USER_STORAGE_KEY)) || null,
+  searchKeyword: '',
   
   selectedCalendarType: 'solar',
   
