@@ -43,6 +43,7 @@ let confirmResolver = null;
 let detailSwipeIndex = 0;
 let detailSwipeCardCount = 0;
 let detailSwipeGoTo = null;
+let detailNumberFitRaf = null;
 
 export function initClock() {
   renderDate();
@@ -122,6 +123,7 @@ export function initEventListeners() {
     void handleDeleteFromDetail();
   });
   window.addEventListener('keydown', handleDetailKeydown);
+  window.addEventListener('resize', scheduleFitDetailNumberWidths);
 
   document.getElementById('datePickerCancel').addEventListener('click', () => {
     closeDatePicker();
@@ -459,6 +461,7 @@ function openDetailPage(index) {
   document.getElementById('addEventPage').classList.remove('active');
   document.getElementById('myPage').classList.remove('active');
   document.getElementById('detailPage').classList.add('active');
+  scheduleFitDetailNumberWidths();
 }
 
 function closeDetailPage() {
@@ -478,6 +481,61 @@ function renderDetailPage(event) {
   detailSwipeIndex = 0;
   swiper.scrollLeft = 0;
   bindDetailSwipe(cards.length);
+  scheduleFitDetailNumberWidths();
+}
+
+function scheduleFitDetailNumberWidths() {
+  if (detailNumberFitRaf !== null) {
+    cancelAnimationFrame(detailNumberFitRaf);
+  }
+  detailNumberFitRaf = requestAnimationFrame(() => {
+    detailNumberFitRaf = requestAnimationFrame(() => {
+      detailNumberFitRaf = null;
+      fitDetailNumberWidths();
+    });
+  });
+}
+
+function fitDetailNumberWidths() {
+  const detailPage = document.getElementById('detailPage');
+  if (!detailPage || !detailPage.classList.contains('active')) return;
+  const numberEls = detailPage.querySelectorAll('.detail-card-main');
+  const measureSpan = document.createElement('span');
+  measureSpan.style.position = 'fixed';
+  measureSpan.style.left = '-99999px';
+  measureSpan.style.top = '0';
+  measureSpan.style.visibility = 'hidden';
+  measureSpan.style.whiteSpace = 'nowrap';
+  document.body.appendChild(measureSpan);
+
+  numberEls.forEach((el) => {
+    el.style.fontSize = '';
+    const cardEl = el.closest('.detail-card');
+    const cardWidth = cardEl ? cardEl.clientWidth : 0;
+    const containerHeight = el.clientHeight;
+    if (!cardWidth || !containerHeight) return;
+
+    const computed = window.getComputedStyle(el);
+    const baseFontSize = parseFloat(computed.fontSize) || 48;
+    const text = (el.textContent || '').trim() || '0';
+    measureSpan.style.fontFamily = computed.fontFamily;
+    measureSpan.style.fontWeight = computed.fontWeight;
+    measureSpan.style.letterSpacing = computed.letterSpacing;
+    measureSpan.style.fontSize = `${baseFontSize}px`;
+    measureSpan.textContent = text;
+    const textWidth = measureSpan.getBoundingClientRect().width || 1;
+    const targetWidth = cardWidth * 0.8;
+
+    let nextSize = baseFontSize * (targetWidth / textWidth);
+    const maxByHeight = containerHeight * 0.9;
+    if (!Number.isFinite(nextSize) || nextSize <= 0) {
+      nextSize = baseFontSize;
+    }
+    nextSize = Math.max(36, Math.min(nextSize, maxByHeight, 220));
+    el.style.fontSize = `${nextSize}px`;
+  });
+
+  measureSpan.remove();
 }
 
 function buildDetailCards(event) {

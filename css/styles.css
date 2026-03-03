@@ -305,6 +305,7 @@ body {
 .detail-page {
   display: none;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 18px 14px 20px;
   background:
     repeating-linear-gradient(
@@ -319,6 +320,8 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
+  gap: 14px;
 }
 
 .container.detail-mode .nav-bar {
@@ -338,7 +341,7 @@ body {
   font-size: 20px;
   position: absolute;
   top: 12px;
-  left: 12px;
+  left: clamp(10px, 3vw, 16px);
   z-index: 3;
 }
 
@@ -349,6 +352,7 @@ body {
   scroll-snap-type: x mandatory;
   padding-bottom: 8px;
   width: 100%;
+  max-width: min(88vw, 560px);
 }
 
 .detail-swiper::-webkit-scrollbar {
@@ -363,19 +367,26 @@ body {
 }
 
 .detail-card {
-  width: 73.3334%;
+  width: 100%;
+  aspect-ratio: 4 / 3;
   scroll-snap-align: start;
   background: #e9e9e9;
   border-radius: 24px;
   overflow: hidden;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
 .detail-card-header {
   color: #fff;
-  font-size: 26px;
+  font-size: clamp(20px, 4.8vw, 26px);
   text-align: center;
-  padding: 20px 12px;
+  padding: clamp(10px, 2.2vw, 16px) 12px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detail-card-header.future {
@@ -387,14 +398,14 @@ body {
 }
 
 .detail-card-main {
-  min-height: 173px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: clamp(54px, 20vw, 113px);
+  font-size: clamp(48px, 18vw, 120px);
   font-weight: 800;
-  line-height: 1;
+  line-height: 0.92;
   padding: 0 12px;
+  width: 100%;
   max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
@@ -403,27 +414,31 @@ body {
   background: #fff;
 }
 
-@media (max-width: 390px) {
-  .detail-card-main {
-    font-size: clamp(44px, 18vw, 88px);
-    padding: 0 10px;
-  }
-}
-
 .detail-card-foot {
   border-top: 1px solid #d0d0d0;
-  padding: 18px 16px 20px;
+  padding: 10px 14px;
   color: #6f6f6f;
-  font-size: 13px;
+  font-size: clamp(12px, 2.8vw, 13px);
+  line-height: 1.4;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  line-height: 1.5;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.detail-card-foot > div {
+  width: 100%;
 }
 
 .detail-actions {
-  margin-top: 18px;
+  margin-top: 4px;
   display: flex;
   gap: 12px;
-  width: 66.6667%;
+  width: min(88vw, 560px);
   align-self: center;
 }
 
@@ -446,6 +461,42 @@ body {
 .detail-action-btn.delete {
   background: #ffe8e8;
   color: #b42318;
+}
+
+@media (max-width: 390px) {
+  .detail-page {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .detail-page.active {
+    gap: 12px;
+  }
+
+  .detail-back {
+    width: 32px;
+    height: 32px;
+    top: 10px;
+  }
+
+  .detail-card {
+    border-radius: 18px;
+  }
+
+  .detail-card-main {
+    font-size: clamp(40px, 15.5vw, 84px);
+    padding: 0 10px;
+  }
+
+  .detail-actions {
+    gap: 10px;
+  }
+
+  .detail-action-btn {
+    border-radius: 14px;
+    padding: 8px 6px;
+    font-size: 13px;
+  }
 }
 
 .settings-card-btn.login-card-btn {
