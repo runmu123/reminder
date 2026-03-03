@@ -33,14 +33,22 @@ const FORCE_REFRESH_ASSETS = [
   'js/config.js'
 ];
 const RELOAD_PARAM = '__reload';
+let lastCountdownDateKey = '';
 
 export function initClock() {
   renderDate();
   renderClock();
+  const now = new Date();
+  lastCountdownDateKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
   state.timerId = setInterval(() => {
+    const current = new Date();
+    const currentDateKey = `${current.getFullYear()}-${current.getMonth()}-${current.getDate()}`;
     renderClock();
     renderDate();
-    renderCountdownList();
+    if (currentDateKey !== lastCountdownDateKey) {
+      lastCountdownDateKey = currentDateKey;
+      renderCountdownList();
+    }
   }, 1000);
 }
 
@@ -344,6 +352,7 @@ function toDbEventRow(event) {
     event_name: event.name,
     solar_date: formatSolarDateCompact(date),
     lunar_date: getLunarDateText(date),
+    is_solar: event.calendarType !== 'lunar',
     weekday: weekdays[date.getDay()],
     repeat_type: event.repeatType,
     is_include_begin_day: !!event.includeStartDay,
@@ -365,7 +374,7 @@ function fromDbEventRow(row) {
     id: `${row.event_name}-${solar}`,
     name: row.event_name,
     targetDate: date.toISOString(),
-    calendarType: 'solar',
+    calendarType: row.is_solar ? 'solar' : 'lunar',
     includeStartDay: !!row.is_include_begin_day,
     repeatType: row.repeat_type,
     createdAt: new Date().toISOString(),

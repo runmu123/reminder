@@ -75,7 +75,7 @@ export async function upsertEvent(eventRow) {
     method: 'POST',
     params: {
       on_conflict: 'event_name',
-      select: 'event_name,solar_date,lunar_date,weekday,repeat_type,is_include_begin_day',
+      select: 'event_name,solar_date,lunar_date,is_solar,weekday,repeat_type,is_include_begin_day',
     },
     body: [eventRow],
     prefer: 'resolution=merge-duplicates,return=representation',
@@ -95,11 +95,10 @@ export async function upsertUserEventLink(userName, eventName) {
 export async function fetchUserEvents(userName) {
   const rows = await request('reminder_user_events', {
     params: {
-      select: 'event_name,reminder_events(event_name,solar_date,lunar_date,weekday,repeat_type,is_include_begin_day)',
+      select: 'event_name,reminder_events(event_name,solar_date,lunar_date,is_solar,weekday,repeat_type,is_include_begin_day)',
       user_name: `eq.${userName}`,
       order: 'event_name.asc',
     },
   });
   return rows || [];
 }
-

@@ -31,27 +31,201 @@ export function renderDate() {
 export function renderCountdownList() {
   const container = document.getElementById('countdownList');
   let html = '';
+  const today = toDateOnly(new Date());
 
   state.events.forEach(event => {
-    const diffDays = getDaysDiff(event.targetDate);
-    const isFuture = diffDays >= 0;
-    const daysText = isFuture ? '还有' : '已经';
-    const daysNumber = Math.abs(diffDays);
-    const colorClass = isFuture ? '' : 'orange';
     const safeName = escapeHtml(event.name);
+    const display = buildEventDisplay(event, today);
+    const itemClass = display.isToday ? 'countdown-item today' : 'countdown-item';
+    const mainLine = display.isToday
+      ? '<div class="countdown-today">就在今天</div>'
+      : renderMetricLine(display.mainLabel, display.mainDays, display.mainTone);
+    const nextLine = display.nextDays !== null
+      ? renderMetricLine('距离下一次还有', display.nextDays, 'future')
+      : '';
+    const lunarNextSolarLine = event.calendarType === 'lunar' && display.nextDate && !display.isToday
+      ? `<div class="countdown-note">下一次的公历时间为：${formatDateZh(display.nextDate)}</div>`
+      : '';
 
     html += `
-      <div class="countdown-item">
-        <div class="countdown-title">${safeName}${daysText}</div>
-        <div class="countdown-value">
-          <div class="countdown-number ${colorClass}">${daysNumber}</div>
-          <div class="countdown-unit">天</div>
-        </div>
+      <div class="${itemClass}">
+        <div class="countdown-title">${safeName}</div>
+        ${mainLine}
+        ${nextLine}
+        ${lunarNextSolarLine}
       </div>
     `;
   });
 
   container.innerHTML = html;
+}
+
+function renderMetricLine(label, days, tone) {
+  const colorClass = tone === 'past' ? 'orange' : '';
+  const safeLabel = escapeHtml(label);
+  const safeDays = Number.isFinite(days) ? days : 0;
+  return `
+    <div class="countdown-metric">
+      <div class="countdown-metric-label">${safeLabel}</div>
+      <div class="countdown-value">
+        <div class="countdown-number ${colorClass}">${safeDays}</div>
+        <div class="countdown-unit">天</div>
+      </div>
+    </div>
+  `;
+}
+
+function toDateOnly(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return toDateOnly(d);
+}
+
+function dayDiff(fromDate, toDate) {
+  const from = toDateOnly(fromDate).getTime();
+  const to = toDateOnly(toDate).getTime();
+  return Math.round((to - from) / (1000 * 60 * 60 * 24));
+}
+
+function formatDateZh(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}年${month}月${day}日`;
+}
+
+function isRepeatEnabled(event) {
+  return ['每周', '每月', '每年'].includes(event.repeatType);
+}
+
+function buildEventDisplay(event, today) {
+  const target = toDateOnly(new Date(event.targetDate));
+  const diff = dayDiff(today, target);
+  const includeStart = !!event.includeStartDay;
+
+  if (diff >= 0) {
+    if (diff === 0) {
+      return {
+        mainLabel: '',
+        mainDays: 0,
+        mainTone: 'future',
+        nextDays: null,
+        nextDate: target,
+        isToday: true,
+      };
+    }
+    return {
+      mainLabel: '还有',
+      mainDays: diff,
+      mainTone: 'future',
+      nextDays: null,
+      nextDate: target,
+      isToday: false,
+    };
+  }
+
+  let elapsed = Math.abs(diff);
+  if (includeStart) {
+    elapsed += 1;
+  }
+
+  if (!isRepeatEnabled(event)) {
+    return {
+      mainLabel: '已经',
+      mainDays: elapsed,
+      mainTone: 'past',
+      nextDays: null,
+      nextDate: null,
+      isToday: false,
+    };
+  }
+
+  const nextDate = getNextOccurrenceDate(event, today);
+  const nextDays = nextDate ? Math.max(0, dayDiff(today, nextDate)) : null;
+  return {
+    mainLabel: '已经',
+    mainDays: elapsed,
+    mainTone: 'past',
+    nextDays,
+    nextDate,
+    isToday: false,
+  };
+}
+
+function getNextOccurrenceDate(event, today) {
+  const target = toDateOnly(new Date(event.targetDate));
+  const type = event.repeatType;
+  const calendarType = event.calendarType || 'solar';
+
+  if (type === '每周') {
+    let candidate = new Date(target);
+    while (candidate < today) {
+      candidate = addDays(candidate, 7);
+    }
+    return candidate;
+  }
+
+  if (calendarType === 'solar') {
+    return getNextSolarOccurrence(target, today, type);
+  }
+
+  return getNextLunarOccurrence(target, today, type);
+}
+
+function getNextSolarOccurrence(target, today, type) {
+  const baseDay = target.getDate();
+  if (type === '每月') {
+    let year = today.getFullYear();
+    let month = today.getMonth();
+    for (let i = 0; i < 240; i++) {
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const day = Math.min(baseDay, daysInMonth);
+      const candidate = new Date(year, month, day);
+      if (candidate >= today) return toDateOnly(candidate);
+      month += 1;
+      if (month > 11) {
+        month = 0;
+        year += 1;
+      }
+    }
+    return null;
+  }
+
+  if (type === '每年') {
+    const baseMonth = target.getMonth();
+    for (let year = today.getFullYear(); year <= today.getFullYear() + 100; year++) {
+      const daysInMonth = new Date(year, baseMonth + 1, 0).getDate();
+      const day = Math.min(baseDay, daysInMonth);
+      const candidate = new Date(year, baseMonth, day);
+      if (candidate >= today) return toDateOnly(candidate);
+    }
+  }
+
+  return null;
+}
+
+function getNextLunarOccurrence(target, today, type) {
+  const baseLunar = Lunar.fromDate(target);
+  const targetMonth = baseLunar.getMonth();
+  const targetDay = baseLunar.getDay();
+
+  // 逐日扫描保证农历推算正确，范围足够覆盖周期需求
+  for (let i = 0; i <= 2000; i++) {
+    const candidate = addDays(today, i);
+    const lunar = Lunar.fromDate(candidate);
+    if (type === '每月') {
+      if (lunar.getDay() === targetDay) return candidate;
+    } else if (type === '每年') {
+      if (lunar.getMonth() === targetMonth && lunar.getDay() === targetDay) return candidate;
+    }
+  }
+  return null;
 }
 
 export function renderTargetDate() {
