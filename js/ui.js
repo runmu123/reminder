@@ -1,6 +1,12 @@
 import { state } from './state.js';
 import { getDaysDiff, escapeHtml } from './utils.js';
 
+const LUNAR_MONTH_NAMES = ['正月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '冬月', '腊月'];
+const LUNAR_DAY_NAMES = ['初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十',
+  '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十',
+  '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
+const LUNAR_YEAR_CACHE = new Map();
+
 export function renderClock() {
   const now = new Date();
   const hours = String(now.getHours()).padStart(2, '0');
@@ -187,12 +193,18 @@ function initLunarPicker() {
   const lunarDay = lunar.getDay();
 
   state.selectedYearIndex = lunarYear - 1900;
-  state.selectedMonthIndex = lunarMonth - 1;
-  state.selectedDayIndex = lunarDay - 1;
+  const yearData = getLunarYearData(lunarYear);
+  const monthOptions = yearData.months;
+  if (monthOptions.length === 0) return;
+  const monthIndex = monthOptions.findIndex((item) => item.value === lunarMonth);
+  state.selectedMonthIndex = monthIndex >= 0 ? monthIndex : Math.max(0, Math.min(monthOptions.length - 1, state.selectedMonthIndex));
+  const currentMonthValue = monthOptions[state.selectedMonthIndex]?.value || lunarMonth;
+  const dayCount = monthOptions[state.selectedMonthIndex]?.dayCount || 29;
+  state.selectedDayIndex = Math.max(0, Math.min(dayCount - 1, lunarDay - 1));
 
   renderYearWheelLunar(1900, 2100, lunarYear);
-  renderMonthWheelLunar(lunarMonth);
-  renderDayWheelLunar(lunarDay);
+  renderMonthWheelLunar(currentMonthValue, monthOptions);
+  renderDayWheelLunar(state.selectedDayIndex + 1, dayCount);
 }
 
 function renderYearWheel(min, max, current, type) {
@@ -232,12 +244,21 @@ function renderMonthWheel(min, max, current, type) {
   attachWheelEvents(container, 'month');
 }
 
-function renderMonthWheelLunar(current) {
+function renderMonthWheelLunar(current, monthOptions = null) {
   const container = document.getElementById('monthWheelInner');
-  const LUNAR_MONTHS = ['正月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '冬月', '腊月'];
+  const year = 1900 + state.selectedYearIndex;
+  const options = monthOptions || getLunarYearData(year).months;
+  if (options.length === 0) return;
+
+  let selectedIndex = options.findIndex((item) => item.value === current);
+  if (selectedIndex < 0) {
+    selectedIndex = Math.max(0, Math.min(options.length - 1, state.selectedMonthIndex));
+  }
+  state.selectedMonthIndex = selectedIndex;
+
   let html = '';
-  for (let i = 0; i < 12; i++) {
-    html += `<div class="date-item ${i + 1 === current ? 'active' : ''}" data-month="${i + 1}">${LUNAR_MONTHS[i]}</div>`;
+  for (let i = 0; i < options.length; i++) {
+    html += `<div class="date-item ${i === selectedIndex ? 'active' : ''}" data-month-index="${i}">${options[i].label}</div>`;
   }
   container.innerHTML = html;
   updateWheelPosition(container, state.selectedMonthIndex);
@@ -256,18 +277,89 @@ function renderDayWheelSolar(year, month, current) {
   attachWheelEvents(container, 'day');
 }
 
-function renderDayWheelLunar(current) {
+function renderDayWheelLunar(current, dayCount = null) {
   const container = document.getElementById('dayWheelInner');
-  const LUNAR_DAYS = ['初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十',
-    '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十',
-    '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
+  const year = 1900 + state.selectedYearIndex;
+  const monthOptions = getLunarYearData(year).months;
+  if (monthOptions.length === 0) return;
+  const monthValue = monthOptions[Math.max(0, Math.min(monthOptions.length - 1, state.selectedMonthIndex))].value;
+  const days = dayCount || monthOptions[Math.max(0, Math.min(monthOptions.length - 1, state.selectedMonthIndex))].dayCount;
+  const normalizedCurrent = Math.max(1, Math.min(days, current));
+  state.selectedDayIndex = normalizedCurrent - 1;
+
   let html = '';
-  for (let i = 0; i < 30; i++) {
-    html += `<div class="date-item ${i + 1 === current ? 'active' : ''}" data-day="${i + 1}">${LUNAR_DAYS[i]}</div>`;
+  for (let i = 0; i < days; i++) {
+    html += `<div class="date-item ${i + 1 === normalizedCurrent ? 'active' : ''}" data-day="${i + 1}">${LUNAR_DAY_NAMES[i]}</div>`;
   }
   container.innerHTML = html;
   updateWheelPosition(container, state.selectedDayIndex);
   attachWheelEvents(container, 'lunarDay');
+}
+
+function formatLunarMonthLabel(monthValue) {
+  const absMonth = Math.abs(monthValue);
+  const baseName = LUNAR_MONTH_NAMES[absMonth - 1] || `${absMonth}月`;
+  return monthValue < 0 ? `闰${baseName}` : baseName;
+}
+
+function getLunarYearData(year) {
+  if (LUNAR_YEAR_CACHE.has(year)) {
+    return LUNAR_YEAR_CACHE.get(year);
+  }
+
+  const monthOrder = [];
+  const monthMap = new Map();
+  const dateMap = new Map();
+  let ganZhi = '';
+  const cursor = new Date(year - 1, 10, 1);
+  const end = new Date(year + 1, 2, 1);
+
+  while (cursor <= end) {
+    const solarDate = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
+    const lunar = Lunar.fromDate(solarDate);
+    if (lunar.getYear() === year) {
+      if (!ganZhi) {
+        ganZhi = lunar.getYearInGanZhi();
+      }
+      const monthValue = lunar.getMonth();
+      const dayValue = lunar.getDay();
+      if (!monthMap.has(monthValue)) {
+        monthMap.set(monthValue, {
+          value: monthValue,
+          label: formatLunarMonthLabel(monthValue),
+          dayCount: 0
+        });
+        monthOrder.push(monthValue);
+      }
+      const monthInfo = monthMap.get(monthValue);
+      if (dayValue > monthInfo.dayCount) {
+        monthInfo.dayCount = dayValue;
+      }
+      const key = `${monthValue}-${dayValue}`;
+      if (!dateMap.has(key)) {
+        dateMap.set(key, solarDate);
+      }
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  const months = monthOrder.map((monthValue) => monthMap.get(monthValue));
+  const data = { ganZhi, months, dateMap };
+  LUNAR_YEAR_CACHE.set(year, data);
+  return data;
+}
+
+function normalizeLunarSelection() {
+  const lunarYear = 1900 + state.selectedYearIndex;
+  const yearData = getLunarYearData(lunarYear);
+  const monthCount = yearData.months.length;
+  if (monthCount === 0) return null;
+
+  state.selectedMonthIndex = Math.max(0, Math.min(monthCount - 1, state.selectedMonthIndex));
+  const monthInfo = yearData.months[state.selectedMonthIndex];
+  state.selectedDayIndex = Math.max(0, Math.min(monthInfo.dayCount - 1, state.selectedDayIndex));
+
+  return { lunarYear, yearData, monthInfo };
 }
 
 function getDaysInMonth(year, month) {
@@ -279,12 +371,14 @@ function updateWheelPosition(wheelInner, index) {
   wheelInner.style.transform = `translateY(${offset}px)`;
 }
 
-function attachWheelEvents(wheelInner, type, offset = 0) {
+function attachWheelEvents(wheelInner, type) {
+  if (wheelInner._removeWheelListeners) {
+    wheelInner._removeWheelListeners();
+  }
+
   let startY = 0;
   let currentY = 0;
   let isDragging = false;
-  let isScrolling = false;
-  const items = wheelInner.querySelectorAll('.date-item');
 
   const handleStart = (clientY) => {
     isDragging = true;
@@ -296,6 +390,7 @@ function attachWheelEvents(wheelInner, type, offset = 0) {
 
   const handleMove = (clientY) => {
     if (!isDragging) return;
+    const items = wheelInner.querySelectorAll('.date-item');
     const deltaY = clientY - startY;
     const newY = currentY + deltaY;
     const maxOffset = 75;
@@ -306,6 +401,7 @@ function attachWheelEvents(wheelInner, type, offset = 0) {
   const handleEnd = () => {
     if (!isDragging) return;
     isDragging = false;
+    const items = wheelInner.querySelectorAll('.date-item');
     const transform = wheelInner.style.transform;
     const match = transform.match(/translateY\((-?\d+)px\)/);
     const currentOffset = match ? parseInt(match[1]) : 0;
@@ -318,8 +414,10 @@ function attachWheelEvents(wheelInner, type, offset = 0) {
       if (type === 'year' || type === 'lunarYear') {
         state.selectedYearIndex = clampedIndex;
         if (state.selectedCalendarType === 'lunar') {
-          renderMonthWheelLunar(1);
-          renderDayWheelLunar(1);
+          const selection = normalizeLunarSelection();
+          if (!selection) return;
+          renderMonthWheelLunar(selection.monthInfo.value, selection.yearData.months);
+          renderDayWheelLunar(state.selectedDayIndex + 1, selection.monthInfo.dayCount);
         } else {
           const year = 1900 + clampedIndex;
           renderMonthWheel(1, 12, 1, 'solar');
@@ -328,7 +426,10 @@ function attachWheelEvents(wheelInner, type, offset = 0) {
       } else if (type === 'month' || type === 'lunarMonth') {
         state.selectedMonthIndex = clampedIndex;
         if (state.selectedCalendarType === 'lunar') {
-          renderDayWheelLunar(1);
+          const selection = normalizeLunarSelection();
+          if (!selection) return;
+          renderMonthWheelLunar(selection.monthInfo.value, selection.yearData.months);
+          renderDayWheelLunar(state.selectedDayIndex + 1, selection.monthInfo.dayCount);
         } else {
           const year = 1900 + state.selectedYearIndex;
           renderDayWheelSolar(year, clampedIndex, 1);
@@ -342,27 +443,27 @@ function attachWheelEvents(wheelInner, type, offset = 0) {
     }, 100);
   };
 
-  wheelInner.addEventListener('touchstart', (e) => handleStart(e.touches[0].clientY));
-  wheelInner.addEventListener('touchmove', (e) => handleMove(e.touches[0].clientY));
-  wheelInner.addEventListener('touchend', handleEnd);
-
-  wheelInner.addEventListener('mousedown', (e) => {
+  const onTouchStart = (e) => handleStart(e.touches[0].clientY);
+  const onTouchMove = (e) => handleMove(e.touches[0].clientY);
+  const onTouchEnd = () => handleEnd();
+  const onMouseDown = (e) => {
     handleStart(e.clientY);
     e.preventDefault();
-  });
-  wheelInner.addEventListener('mousemove', (e) => {
+  };
+  const onMouseMove = (e) => {
     if (isDragging) {
       handleMove(e.clientY);
     }
-  });
-  wheelInner.addEventListener('mouseup', handleEnd);
-  wheelInner.addEventListener('mouseleave', handleEnd);
+  };
+  const onMouseUp = () => handleEnd();
+  const onMouseLeave = () => handleEnd();
 
   // 鼠标滚轮支持
-  wheelInner.addEventListener('wheel', (e) => {
+  const onWheel = (e) => {
     e.preventDefault();
     if (isDragging) return;
 
+    const items = wheelInner.querySelectorAll('.date-item');
     const transform = wheelInner.style.transform;
     const match = transform.match(/translateY\((-?\d+)px\)/);
     const currentOffset = match ? parseInt(match[1]) : 0;
@@ -385,8 +486,10 @@ function attachWheelEvents(wheelInner, type, offset = 0) {
       if (type === 'year' || type === 'lunarYear') {
         state.selectedYearIndex = finalClamped;
         if (state.selectedCalendarType === 'lunar') {
-          renderMonthWheelLunar(1);
-          renderDayWheelLunar(1);
+          const selection = normalizeLunarSelection();
+          if (!selection) return;
+          renderMonthWheelLunar(selection.monthInfo.value, selection.yearData.months);
+          renderDayWheelLunar(state.selectedDayIndex + 1, selection.monthInfo.dayCount);
         } else {
           const year = 1900 + finalClamped;
           renderMonthWheel(1, 12, 1, 'solar');
@@ -395,7 +498,10 @@ function attachWheelEvents(wheelInner, type, offset = 0) {
       } else if (type === 'month' || type === 'lunarMonth') {
         state.selectedMonthIndex = finalClamped;
         if (state.selectedCalendarType === 'lunar') {
-          renderDayWheelLunar(1);
+          const selection = normalizeLunarSelection();
+          if (!selection) return;
+          renderMonthWheelLunar(selection.monthInfo.value, selection.yearData.months);
+          renderDayWheelLunar(state.selectedDayIndex + 1, selection.monthInfo.dayCount);
         } else {
           const year = 1900 + state.selectedYearIndex;
           renderDayWheelSolar(year, finalClamped, 1);
@@ -407,7 +513,27 @@ function attachWheelEvents(wheelInner, type, offset = 0) {
       updateSelectedDate();
       initDatePicker();
     }, 500);
-  });
+  };
+
+  wheelInner.addEventListener('touchstart', onTouchStart);
+  wheelInner.addEventListener('touchmove', onTouchMove);
+  wheelInner.addEventListener('touchend', onTouchEnd);
+  wheelInner.addEventListener('mousedown', onMouseDown);
+  wheelInner.addEventListener('mousemove', onMouseMove);
+  wheelInner.addEventListener('mouseup', onMouseUp);
+  wheelInner.addEventListener('mouseleave', onMouseLeave);
+  wheelInner.addEventListener('wheel', onWheel);
+
+  wheelInner._removeWheelListeners = () => {
+    wheelInner.removeEventListener('touchstart', onTouchStart);
+    wheelInner.removeEventListener('touchmove', onTouchMove);
+    wheelInner.removeEventListener('touchend', onTouchEnd);
+    wheelInner.removeEventListener('mousedown', onMouseDown);
+    wheelInner.removeEventListener('mousemove', onMouseMove);
+    wheelInner.removeEventListener('mouseup', onMouseUp);
+    wheelInner.removeEventListener('mouseleave', onMouseLeave);
+    wheelInner.removeEventListener('wheel', onWheel);
+  };
 }
 
 function updateSelectedDate() {
@@ -418,14 +544,13 @@ function updateSelectedDate() {
     const day = Math.min(state.selectedDayIndex + 1, days);
     state.selectedDate = new Date(year, month, day);
   } else {
-    const lunarYear = 1900 + state.selectedYearIndex;
-    const lunarMonth = state.selectedMonthIndex + 1;
+    const selection = normalizeLunarSelection();
+    if (!selection) return;
     const lunarDay = state.selectedDayIndex + 1;
-    try {
-      const lunar = Lunar.fromYmd(lunarYear, lunarMonth, lunarDay);
-      state.selectedDate = lunar.getSolar().toDate();
-    } catch (e) {
-      state.selectedDate = new Date();
+    const key = `${selection.monthInfo.value}-${lunarDay}`;
+    const mappedSolarDate = selection.yearData.dateMap.get(key);
+    if (mappedSolarDate) {
+      state.selectedDate = new Date(mappedSolarDate.getFullYear(), mappedSolarDate.getMonth(), mappedSolarDate.getDate());
     }
   }
 }
