@@ -316,27 +316,15 @@ async function handleSaveEvent() {
     repeatType,
     createdAt: new Date().toISOString()
   };
+  const userName = state.currentUser?.user_name || '';
+  const oldEventName = editingEventIndex !== null ? editingOriginalName : '';
+  const isRename = editingEventIndex !== null && oldEventName && oldEventName !== event.name;
 
   if (editingEventIndex !== null) {
     state.events[editingEventIndex] = event;
     saveEvents();
   } else {
     addEvent(event);
-  }
-  if (state.currentUser?.user_name) {
-    try {
-      if (editingEventIndex !== null && editingOriginalName && editingOriginalName !== event.name) {
-        await removeEventFromCloud(editingOriginalName, state.currentUser.user_name);
-      }
-      await uploadEventToCloud(event, state.currentUser.user_name);
-      await pullEventsFromCloud(state.currentUser.user_name);
-      showToast('事件已保存并同步云端', 'success');
-    } catch (error) {
-      console.error(error);
-      showToast('本地已保存，云端同步失败', 'error');
-    }
-  } else {
-    showToast('事件已保存到本地，请先登录同步云端', 'info');
   }
 
   resetForm();
@@ -346,6 +334,26 @@ async function handleSaveEvent() {
   localStorage.setItem(ACTIVE_PAGE_KEY, 'schedule');
   switchToMainPage();
   renderCountdownList();
+
+  // 保存后立即返回，云端同步在后台进行，不阻塞界面也不提示用户。
+  if (userName) {
+    void syncEventToCloudInBackground(event, userName, { oldEventName, isRename });
+  }
+}
+
+async function syncEventToCloudInBackground(event, userName, { oldEventName = '', isRename = false } = {}) {
+  try {
+    await uploadEventToCloud(event, userName);
+    if (isRename) {
+      try {
+        await removeEventFromCloud(oldEventName, userName);
+      } catch (error) {
+        console.warn(`旧事件清理失败，已忽略: ${oldEventName}`, error);
+      }
+    }
+  } catch (error) {
+    console.error('后台云端同步失败:', error);
+  }
 }
 
 async function handleLogin() {
@@ -828,7 +836,12 @@ async function uploadEventToCloud(event, userName) {
 
 async function removeEventFromCloud(eventName, userName) {
   await deleteUserEventLink(userName, eventName);
-  await deleteEventByName(eventName);
+  try {
+    await deleteEventByName(eventName);
+  } catch (error) {
+    // Event row can still be referenced by other users; link deletion is enough for current user.
+    console.warn(`删除事件主表记录失败，已忽略: ${eventName}`, error);
+  }
 }
 
 async function pullEventsFromCloud(userName) {

@@ -326,6 +326,7 @@ export function updateCalendarToggle() {
 }
 
 export function switchToAddPage() {
+  document.querySelector('.container')?.classList.remove('detail-mode');
   document.getElementById('mainPage').classList.add('hidden');
   document.getElementById('addEventPage').classList.add('active');
   document.getElementById('myPage').classList.remove('active');
@@ -337,6 +338,7 @@ export function switchToAddPage() {
 }
 
 export function switchToMainPage() {
+  document.querySelector('.container')?.classList.remove('detail-mode');
   document.getElementById('mainPage').classList.remove('hidden');
   document.getElementById('addEventPage').classList.remove('active');
   document.getElementById('myPage').classList.remove('active');
@@ -346,6 +348,7 @@ export function switchToMainPage() {
 }
 
 export function switchToMyPage() {
+  document.querySelector('.container')?.classList.remove('detail-mode');
   document.getElementById('mainPage').classList.add('hidden');
   document.getElementById('addEventPage').classList.remove('active');
   document.getElementById('myPage').classList.add('active');
