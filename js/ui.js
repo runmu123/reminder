@@ -36,13 +36,38 @@ export function renderCountdownList() {
   let html = '';
   const today = toDateOnly(new Date());
   const keyword = String(state.searchKeyword || '').trim().toLowerCase();
+  const sortedEvents = state.events
+    .map((event, index) => {
+      const display = buildEventDisplay(event, today);
+      let remainDays = Number.POSITIVE_INFINITY;
+      if (display.isToday) {
+        remainDays = 0;
+      } else if (display.mainLabel === '还有') {
+        remainDays = Number(display.mainDays) || 0;
+      } else if (display.nextDays !== null) {
+        remainDays = Number(display.nextDays) || 0;
+      }
+      return {
+        event,
+        index,
+        display,
+        remainDays,
+      };
+    })
+    .sort((a, b) => {
+      if (a.remainDays !== b.remainDays) {
+        return a.remainDays - b.remainDays;
+      }
+      const aName = String(a.event.name || '');
+      const bName = String(b.event.name || '');
+      return aName.localeCompare(bName, 'zh-Hans-CN');
+    });
 
-  state.events.forEach((event, index) => {
+  sortedEvents.forEach(({ event, index, display }) => {
     if (keyword && !String(event.name || '').toLowerCase().includes(keyword)) {
       return;
     }
     const safeName = escapeHtml(event.name);
-    const display = buildEventDisplay(event, today);
     const itemClass = display.isToday ? 'countdown-item today' : 'countdown-item';
     const mainLine = display.mainLabel
       ? renderMetricLine(display.mainLabel, display.mainDays, display.mainTone)
