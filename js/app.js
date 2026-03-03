@@ -1,10 +1,10 @@
 import { state, addEvent, resetForm, setEvents, setCurrentUser, saveEvents } from './state.js';
 import { showToast } from './toast.js';
 import { loginOrRegister, upsertEvent, upsertUserEventLink, fetchUserEvents, deleteUserEventLink, deleteEventByName } from './supabase.js';
-import { 
-  renderClock, 
-  renderDate, 
-  renderCountdownList, 
+import {
+  renderClock,
+  renderDate,
+  renderCountdownList,
   getEventDisplayData,
   formatDateWithWeekday,
   renderTargetDate,
@@ -89,7 +89,7 @@ export function initEventListeners() {
   });
 
   document.getElementById('navApps').addEventListener('click', () => {
-    showToast('应用功能开发中', 'info');
+    void handleForceRefresh();
   });
 
   document.getElementById('backBtn').addEventListener('click', () => {
@@ -271,7 +271,7 @@ async function handleSaveEvent() {
   } else {
     showToast('事件已保存到本地，请先登录同步云端', 'info');
   }
-  
+
   resetForm();
   resetFormUI();
   editingEventIndex = null;
@@ -425,11 +425,15 @@ function buildDetailCards(event) {
   const repeatEnabled = ['每周', '每月', '每年'].includes(event.repeatType);
 
   if (isPast) {
+    const footLines = [`起始日：${formatDateWithWeekday(target)}`];
+    if (event.calendarType === 'lunar') {
+      footLines.push(`农历：${getLunarGanzhiMonthDayText(target)}`);
+    }
     cards.push({
       tone: 'past',
       title: `${event.name}已经`,
       days: display.mainDays,
-      footLines: [`起始日：${formatDateWithWeekday(target)}`],
+      footLines,
     });
   }
 
@@ -652,6 +656,11 @@ function getLunarDateText(date) {
   return `${lunar.getYearInGanZhi()}${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`;
 }
 
+function getLunarGanzhiMonthDayText(date) {
+  const lunar = Lunar.fromDate(date);
+  return `${lunar.getYearInGanZhi()}${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`;
+}
+
 function toDbEventRow(event) {
   const date = new Date(event.targetDate);
   const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
@@ -733,10 +742,14 @@ function updateLoginStatus() {
 
 async function handleForceRefresh() {
   const trigger = document.getElementById('forceRefreshCardBtn');
-  if (!trigger || trigger.disabled) return;
+  if (trigger && trigger.disabled) return;
 
-  trigger.disabled = true;
-  trigger.classList.add('loading');
+  const currentPage = getCurrentActivePage();
+
+  if (trigger) {
+    trigger.disabled = true;
+    trigger.classList.add('loading');
+  }
   showRefreshOverlay();
   updateRefreshProgress(5, '准备刷新资源...');
 
@@ -759,7 +772,7 @@ async function handleForceRefresh() {
 
     updateRefreshProgress(100, '刷新完成，正在重载...');
     showToast('资源已刷新，正在重载', 'success');
-    localStorage.setItem(ACTIVE_PAGE_KEY, 'me');
+    localStorage.setItem(ACTIVE_PAGE_KEY, currentPage);
     window.setTimeout(() => {
       const nextUrl = new URL(window.location.href);
       nextUrl.searchParams.set(RELOAD_PARAM, stamp);
@@ -768,10 +781,22 @@ async function handleForceRefresh() {
   } catch (error) {
     console.error(error);
     hideRefreshOverlay();
-    trigger.disabled = false;
-    trigger.classList.remove('loading');
+    if (trigger) {
+      trigger.disabled = false;
+      trigger.classList.remove('loading');
+    }
     showToast('强制刷新失败，请重试', 'error');
   }
+}
+
+function getCurrentActivePage() {
+  if (document.getElementById('detailPage')?.classList.contains('active')) {
+    return 'schedule';
+  }
+  if (document.getElementById('myPage')?.classList.contains('active')) {
+    return 'me';
+  }
+  return 'schedule';
 }
 
 export function init() {
