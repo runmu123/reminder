@@ -391,10 +391,23 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 113px;
+  font-size: clamp(54px, 20vw, 113px);
   font-weight: 800;
+  line-height: 1;
+  padding: 0 12px;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
   color: #23262d;
   background: #fff;
+}
+
+@media (max-width: 390px) {
+  .detail-card-main {
+    font-size: clamp(44px, 18vw, 88px);
+    padding: 0 10px;
+  }
 }
 
 .detail-card-foot {
