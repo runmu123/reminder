@@ -114,10 +114,6 @@ export function initEventListeners() {
     updateRepeatButton();
   });
 
-  document.getElementById('advancedToggle').addEventListener('click', () => {
-    document.getElementById('advancedContent').classList.toggle('active');
-  });
-
   document.getElementById('saveBtn').addEventListener('click', handleSaveEvent);
   document.getElementById('countdownList').addEventListener('click', handleCountdownItemClick);
   document.getElementById('detailBackBtn').addEventListener('click', closeDetailPage);
