@@ -91,6 +91,10 @@
         </div>
 
         <div class="my-page" id="myPage">
+            <div class="my-auth-bar">
+                <button class="login-btn" id="loginBtn" type="button">登录</button>
+                <span class="login-status" id="loginStatus">未登录</span>
+            </div>
             <div class="my-header">我的</div>
             <button class="settings-card-btn" id="forceRefreshCardBtn" type="button">
                 <span class="settings-card-icon">⟳</span>
@@ -156,6 +160,18 @@
             <div class="refresh-subtitle" id="refreshProgressText">准备中...</div>
             <div class="refresh-track">
                 <div class="refresh-bar" id="refreshProgressBar"></div>
+            </div>
+        </div>
+    </div>
+    <div class="login-modal" id="loginModal">
+        <div class="login-modal-card">
+            <div class="login-modal-title">登录</div>
+            <div class="login-modal-subtitle">未注册用户将自动创建账号</div>
+            <input class="login-input" id="loginUserName" type="text" placeholder="请输入用户名">
+            <input class="login-input" id="loginUserPassport" type="password" placeholder="请输入口令">
+            <div class="login-modal-actions">
+                <button class="login-modal-btn cancel" id="loginCancelBtn" type="button">取消</button>
+                <button class="login-modal-btn confirm" id="loginConfirmBtn" type="button">登录</button>
             </div>
         </div>
     </div>

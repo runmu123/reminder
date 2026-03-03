@@ -198,6 +198,33 @@ body {
   display: block;
 }
 
+.my-auth-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.login-btn {
+  border: none;
+  background: var(--primary-color);
+  color: #fff;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.login-btn:hover {
+  background: var(--primary-hover);
+}
+
+.login-status {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
 .my-header {
   font-size: 22px;
   margin-bottom: 16px;
@@ -624,6 +651,81 @@ input:checked + .slider:before {
 
 .refresh-overlay.active {
   display: flex;
+}
+
+.login-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2300;
+  background: rgba(0, 0, 0, 0.35);
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.login-modal.active {
+  display: flex;
+}
+
+.login-modal-card {
+  width: min(380px, 100%);
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+}
+
+.login-modal-title {
+  font-size: 18px;
+  color: var(--text-color);
+  margin-bottom: 4px;
+}
+
+.login-modal-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  margin-bottom: 12px;
+}
+
+.login-input {
+  width: 100%;
+  border: 1px solid #dbe2f2;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  outline: none;
+}
+
+.login-input:focus {
+  border-color: #9bb9ff;
+  box-shadow: 0 0 0 2px rgba(78, 140, 255, 0.12);
+}
+
+.login-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.login-modal-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.login-modal-btn.cancel {
+  background: #f0f2f6;
+  color: #4b5563;
+}
+
+.login-modal-btn.confirm {
+  background: var(--primary-color);
+  color: #fff;
 }
 
 .refresh-card {

@@ -1,5 +1,6 @@
-import { state, addEvent, resetForm } from './state.js';
+import { state, addEvent, resetForm, setEvents, setCurrentUser } from './state.js';
 import { showToast } from './toast.js';
+import { loginOrRegister, upsertEvent, upsertUserEventLink, fetchUserEvents } from './supabase.js';
 import { 
   renderClock, 
   renderDate, 
@@ -25,7 +26,9 @@ const FORCE_REFRESH_ASSETS = [
   'js/ui.js',
   'js/state.js',
   'js/utils.js',
-  'js/toast.js'
+  'js/toast.js',
+  'js/supabase.js',
+  'js/config.js'
 ];
 const RELOAD_PARAM = '__reload';
 
@@ -115,9 +118,44 @@ export function initEventListeners() {
       void handleForceRefresh();
     });
   }
+
+  const loginBtn = document.getElementById('loginBtn');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', openLoginModal);
+  }
+
+  const loginCancelBtn = document.getElementById('loginCancelBtn');
+  if (loginCancelBtn) {
+    loginCancelBtn.addEventListener('click', closeLoginModal);
+  }
+
+  const loginConfirmBtn = document.getElementById('loginConfirmBtn');
+  if (loginConfirmBtn) {
+    loginConfirmBtn.addEventListener('click', () => {
+      void handleLogin();
+    });
+  }
+
+  const loginModal = document.getElementById('loginModal');
+  if (loginModal) {
+    loginModal.addEventListener('click', (e) => {
+      if (e.target.id === 'loginModal') {
+        closeLoginModal();
+      }
+    });
+  }
+
+  const loginUserPassport = document.getElementById('loginUserPassport');
+  if (loginUserPassport) {
+    loginUserPassport.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        void handleLogin();
+      }
+    });
+  }
 }
 
-function handleSaveEvent() {
+async function handleSaveEvent() {
   const eventName = document.getElementById('eventName').value.trim();
   const includeStartDay = document.getElementById('includeStartDay').checked;
   const repeatType = REPEAT_OPTIONS[state.currentRepeatIndex];
@@ -138,12 +176,170 @@ function handleSaveEvent() {
   };
 
   addEvent(event);
-  showToast('事件已保存', 'success');
+  if (state.currentUser?.user_name) {
+    try {
+      await uploadEventToCloud(event, state.currentUser.user_name);
+      await pullEventsFromCloud(state.currentUser.user_name);
+      showToast('事件已保存并同步云端', 'success');
+    } catch (error) {
+      console.error(error);
+      showToast('本地已保存，云端同步失败', 'error');
+    }
+  } else {
+    showToast('事件已保存到本地，请先登录同步云端', 'info');
+  }
   
   resetForm();
   resetFormUI();
   switchToMainPage();
   renderCountdownList();
+}
+
+async function handleLogin() {
+  const userNameInput = document.getElementById('loginUserName');
+  const userPassportInput = document.getElementById('loginUserPassport');
+  const userName = userNameInput?.value?.trim();
+  const userPassport = userPassportInput?.value?.trim();
+
+  if (!userName) {
+    showToast('用户名不能为空', 'error');
+    return;
+  }
+  if (!userPassport) {
+    showToast('口令不能为空', 'error');
+    return;
+  }
+
+  const loginConfirmBtn = document.getElementById('loginConfirmBtn');
+  if (loginConfirmBtn) {
+    loginConfirmBtn.disabled = true;
+    loginConfirmBtn.textContent = '登录中...';
+  }
+
+  try {
+    const user = await loginOrRegister(userName, userPassport);
+    setCurrentUser(user);
+    updateLoginStatus();
+    await pullEventsFromCloud(user.user_name);
+    closeLoginModal();
+    showToast('登录成功，云端事件已加载', 'success');
+  } catch (error) {
+    console.error(error);
+    showToast(error.message || '登录失败', 'error');
+  } finally {
+    if (loginConfirmBtn) {
+      loginConfirmBtn.disabled = false;
+      loginConfirmBtn.textContent = '登录';
+    }
+  }
+}
+
+function openLoginModal() {
+  const modal = document.getElementById('loginModal');
+  const userNameInput = document.getElementById('loginUserName');
+  const userPassportInput = document.getElementById('loginUserPassport');
+  if (!modal) return;
+  modal.classList.add('active');
+  if (userNameInput) {
+    userNameInput.value = state.currentUser?.user_name || '';
+  }
+  if (userPassportInput) {
+    userPassportInput.value = '';
+  }
+  if (userNameInput && !userNameInput.value) {
+    userNameInput.focus();
+  } else if (userPassportInput) {
+    userPassportInput.focus();
+  }
+}
+
+function closeLoginModal() {
+  const modal = document.getElementById('loginModal');
+  if (!modal) return;
+  modal.classList.remove('active');
+}
+
+function formatSolarDateCompact(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}${month}${day}`;
+}
+
+function getLunarDateText(date) {
+  const lunar = Lunar.fromDate(date);
+  return `${lunar.getYearInGanZhi()}${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`;
+}
+
+function toDbEventRow(event) {
+  const date = new Date(event.targetDate);
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  return {
+    event_name: event.name,
+    solar_date: formatSolarDateCompact(date),
+    lunar_date: getLunarDateText(date),
+    weekday: weekdays[date.getDay()],
+    repeat_type: event.repeatType,
+    is_include_begin_day: !!event.includeStartDay,
+  };
+}
+
+function fromDbEventRow(row) {
+  const solar = String(row.solar_date || '');
+  const year = Number(solar.slice(0, 4));
+  const month = Number(solar.slice(4, 6));
+  const day = Number(solar.slice(6, 8));
+  const date = new Date(year, month - 1, day);
+  const isValidDate = Number.isFinite(date.getTime());
+  if (!isValidDate) {
+    throw new Error(`无效的 solar_date: ${solar}`);
+  }
+
+  return {
+    id: `${row.event_name}-${solar}`,
+    name: row.event_name,
+    targetDate: date.toISOString(),
+    calendarType: 'solar',
+    includeStartDay: !!row.is_include_begin_day,
+    repeatType: row.repeat_type,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+async function uploadEventToCloud(event, userName) {
+  const dbEvent = toDbEventRow(event);
+  await upsertEvent(dbEvent);
+  await upsertUserEventLink(userName, dbEvent.event_name);
+}
+
+async function pullEventsFromCloud(userName) {
+  const rows = await fetchUserEvents(userName);
+  const normalizedRows = rows.flatMap((item) => {
+    if (!item || !item.reminder_events) return [];
+    return Array.isArray(item.reminder_events) ? item.reminder_events : [item.reminder_events];
+  });
+  const events = normalizedRows
+    .map((row) => {
+      try {
+        return fromDbEventRow(row);
+      } catch (error) {
+        console.error('解析云端事件失败:', row, error);
+        return null;
+      }
+    })
+    .filter(Boolean);
+  setEvents(events);
+  renderCountdownList();
+}
+
+function updateLoginStatus() {
+  const status = document.getElementById('loginStatus');
+  if (!status) return;
+  if (state.currentUser?.user_name) {
+    status.textContent = `已登录：${state.currentUser.user_name}`;
+  } else {
+    status.textContent = '未登录';
+  }
 }
 
 async function handleForceRefresh() {
@@ -189,7 +385,14 @@ async function handleForceRefresh() {
 export function init() {
   initClock();
   initEventListeners();
+  updateLoginStatus();
   renderCountdownList();
+  if (state.currentUser?.user_name) {
+    void pullEventsFromCloud(state.currentUser.user_name).catch((error) => {
+      console.error(error);
+      showToast('云端事件加载失败，已回退本地数据', 'error');
+    });
+  }
 }
 
 export default { init };
