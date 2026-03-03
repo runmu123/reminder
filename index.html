@@ -5,9 +5,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>日程提醒</title>
+    <style>
+        html.app-preload body {
+            visibility: hidden;
+        }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.min.js"></script>
     <script>
         (function () {
+            var root = document.documentElement;
+            root.classList.add('app-preload');
+
+            var revealed = false;
+            var revealApp = function () {
+                if (revealed) {
+                    return;
+                }
+                revealed = true;
+                root.classList.remove('app-preload');
+            };
+
             var reloadToken = new URLSearchParams(window.location.search).get('__reload');
             var href = 'css/styles.css';
             if (reloadToken) {
@@ -16,7 +33,10 @@
             var link = document.createElement('link');
             link.rel = 'stylesheet';
             link.href = href;
+            link.onload = revealApp;
+            link.onerror = revealApp;
             document.head.appendChild(link);
+            setTimeout(revealApp, 3000);
         })();
     </script>
 </head>
@@ -178,7 +198,7 @@
             <div class="login-modal-title">登录</div>
             <div class="login-modal-subtitle">未注册用户将自动创建账号</div>
             <input class="login-input" id="loginUserName" type="text" placeholder="请输入用户名">
-            <input class="login-input" id="loginUserPassport" type="password" placeholder="请输入口令">
+            <input class="login-input" id="loginUserPassport" type="password" placeholder="请输入密码">
             <div class="login-modal-actions">
                 <button class="login-modal-btn cancel" id="loginCancelBtn" type="button">取消</button>
                 <button class="login-modal-btn confirm" id="loginConfirmBtn" type="button">登录</button>

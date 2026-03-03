@@ -65,7 +65,7 @@ export async function loginOrRegister(userName, userPassport) {
     return registerUser(userName, userPassport);
   }
   if (user.user_passport !== userPassport) {
-    throw new Error('用户名或口令不正确');
+    throw new Error('用户名或密码不正确');
   }
   return user;
 }

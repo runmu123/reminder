@@ -357,7 +357,7 @@ async function handleLogin() {
     return;
   }
   if (!userPassport) {
-    showToast('口令不能为空', 'error');
+    showToast('密码不能为空', 'error');
     return;
   }
 
