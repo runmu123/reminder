@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>倒计时应用</title>
+    <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.min.js"></script>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="main-page" id="mainPage">
+            <div class="time-section">
+                <div class="date" id="date"></div>
+                <div class="clock">
+                    <div class="clock-item" id="hours"></div>
+                    <div class="clock-separator">:</div>
+                    <div class="clock-item" id="minutes"></div>
+                    <div class="clock-separator">:</div>
+                    <div class="clock-item" id="seconds"></div>
+                </div>
+            </div>
+
+            <div class="countdown-list" id="countdownList"></div>
+
+            <div class="add-btn">+ 添加新事件</div>
+        </div>
+
+        <div class="add-event-page" id="addEventPage">
+            <div class="back-btn" id="backBtn">← 返回</div>
+
+            <div class="form-section">
+                <div class="form-label">
+                    <i>📄</i>
+                    <span>输入事件名称</span>
+                </div>
+                <input type="text" class="form-input" id="eventName" placeholder="请输入事件名称">
+            </div>
+
+            <div class="form-section">
+                <div class="form-label">
+                    <i>📅</i>
+                    <span>目标日 (未来日期为倒数，过去日期为正数)</span>
+                </div>
+                <div class="date-display" id="targetDateDisplay"></div>
+                <div class="calendar-toggle">
+                    <div class="toggle-btn active" data-type="solar">公历</div>
+                    <div class="toggle-btn" data-type="lunar">阴历</div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="form-row">
+                    <div class="form-label">
+                        <i>🔄</i>
+                        <span>重复类型 (可选每周、每月、每年)</span>
+                    </div>
+                    <button class="select-btn" id="repeatType">不重复 ▾</button>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="switch-container">
+                    <div class="form-label">
+                        <i>➕</i>
+                        <span>正数包含起始日 (+1 天)</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="includeStartDay">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <div class="collapse-header" id="advancedToggle">
+                    <div class="form-label" style="margin-bottom: 0;">
+                        <i>📦</i>
+                        <span>进阶设置 (置顶、自定义背景图片)</span>
+                    </div>
+                    <i>▼</i>
+                </div>
+                <div class="collapse-content" id="advancedContent">
+                    <p style="padding: 10px 0; color: #999;">进阶设置功能开发中...</p>
+                </div>
+            </div>
+
+            <button class="save-btn" id="saveBtn">保存</button>
+        </div>
+
+        <div class="my-page" id="myPage">
+            <div class="my-header">我的</div>
+            <button class="settings-card-btn" id="forceRefreshCardBtn" type="button">
+                <span class="settings-card-icon">⟳</span>
+                <span class="settings-card-title">强制刷新</span>
+                <span class="settings-card-desc">重新加载全部 JS，避免缓存导致旧代码生效</span>
+            </button>
+        </div>
+
+        <div class="date-picker-modal" id="datePickerModal">
+            <div class="date-picker-content">
+                <div class="date-picker-title">选择器</div>
+                <div class="date-picker-body">
+                    <div class="date-column">
+                        <div class="column-label" id="yearLabel">年</div>
+                        <div class="date-wheel" id="yearWheel">
+                            <div class="date-wheel-inner" id="yearWheelInner"></div>
+                        </div>
+                    </div>
+                    <div class="date-column">
+                        <div class="column-label" id="monthLabel">月</div>
+                        <div class="date-wheel" id="monthWheel">
+                            <div class="date-wheel-inner" id="monthWheelInner"></div>
+                        </div>
+                    </div>
+                    <div class="date-column">
+                        <div class="column-label" id="dayLabel">日</div>
+                        <div class="date-wheel" id="dayWheel">
+                            <div class="date-wheel-inner" id="dayWheelInner"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="date-picker-buttons">
+                    <button class="picker-btn cancel" id="datePickerCancel">取消</button>
+                    <button class="picker-btn confirm" id="datePickerConfirm">确认</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="nav-bar">
+            <div class="nav-item active" id="navSchedule" data-page="schedule">
+                <i>📅</i>
+                <span>日程</span>
+            </div>
+            <div class="nav-item" id="navTodo" data-page="todo">
+                <i>📝</i>
+                <span>待办</span>
+            </div>
+            <div class="nav-item" id="navApps" data-page="apps">
+                <i>⚙️</i>
+                <span>应用</span>
+            </div>
+            <div class="nav-item" id="navMe" data-page="me">
+                <i>👤</i>
+                <span>我的</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+    <div class="refresh-overlay" id="refreshOverlay">
+        <div class="refresh-card">
+            <div class="refresh-title">正在强制刷新资源</div>
+            <div class="refresh-subtitle" id="refreshProgressText">准备中...</div>
+            <div class="refresh-track">
+                <div class="refresh-bar" id="refreshProgressBar"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
