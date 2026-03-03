@@ -6,7 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>倒计时应用</title>
     <script src="https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.12/lunar.min.js"></script>
-    <link rel="stylesheet" href="css/styles.css">
+    <script>
+        (function () {
+            var reloadToken = new URLSearchParams(window.location.search).get('__reload');
+            var href = 'css/styles.css';
+            if (reloadToken) {
+                href += '?__reload=' + encodeURIComponent(reloadToken);
+            }
+            var link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = href;
+            document.head.appendChild(link);
+        })();
+    </script>
 </head>
 
 <body>
@@ -91,11 +103,16 @@
         </div>
 
         <div class="my-page" id="myPage">
-            <div class="my-auth-bar">
-                <button class="login-btn" id="loginBtn" type="button">登录</button>
-                <span class="login-status" id="loginStatus">未登录</span>
-            </div>
-            <div class="my-header">我的</div>
+            <button class="settings-card-btn login-card-btn" id="loginBtn" type="button">
+                <span class="settings-card-icon" aria-hidden="true">
+                    <svg class="login-card-icon-svg" viewBox="0 0 24 24" focusable="false">
+                        <circle cx="12" cy="7.2" r="3.2"></circle>
+                        <path d="M6.8 18.8c0-2.7 2.3-4.8 5.2-4.8s5.2 2.1 5.2 4.8"></path>
+                    </svg>
+                </span>
+                <span class="settings-card-title">登录</span>
+                <span class="settings-card-desc">点击进行切换账号或者注销</span>
+            </button>
             <button class="settings-card-btn" id="forceRefreshCardBtn" type="button">
                 <span class="settings-card-icon">⟳</span>
                 <span class="settings-card-title">强制刷新</span>
@@ -173,6 +190,14 @@
                 <button class="login-modal-btn cancel" id="loginCancelBtn" type="button">取消</button>
                 <button class="login-modal-btn confirm" id="loginConfirmBtn" type="button">登录</button>
             </div>
+        </div>
+    </div>
+    <div class="account-action-modal" id="accountActionModal">
+        <div class="account-action-card">
+            <div class="account-action-title" id="accountActionTitle">当前登录用户为:</div>
+            <button class="account-action-btn primary" id="switchAccountBtn" type="button">切换账号</button>
+            <button class="account-action-btn danger" id="logoutBtn" type="button">注销</button>
+            <button class="account-action-btn" id="accountActionCancelBtn" type="button">取消</button>
         </div>
     </div>
 

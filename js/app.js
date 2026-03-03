@@ -20,7 +20,9 @@ import {
 } from './ui.js';
 
 const REPEAT_OPTIONS = ['不重复', '每周', '每月', '每年'];
+const ACTIVE_PAGE_KEY = 'reminderActivePage';
 const FORCE_REFRESH_ASSETS = [
+  'css/styles.css',
   'js/main.js',
   'js/app.js',
   'js/ui.js',
@@ -51,14 +53,17 @@ export function destroyClock() {
 
 export function initEventListeners() {
   document.querySelector('.add-btn').addEventListener('click', () => {
+    localStorage.setItem(ACTIVE_PAGE_KEY, 'schedule');
     switchToAddPage();
   });
 
   document.getElementById('navSchedule').addEventListener('click', () => {
+    localStorage.setItem(ACTIVE_PAGE_KEY, 'schedule');
     switchToMainPage();
   });
 
   document.getElementById('navMe').addEventListener('click', () => {
+    localStorage.setItem(ACTIVE_PAGE_KEY, 'me');
     switchToMyPage();
   });
 
@@ -121,7 +126,7 @@ export function initEventListeners() {
 
   const loginBtn = document.getElementById('loginBtn');
   if (loginBtn) {
-    loginBtn.addEventListener('click', openLoginModal);
+    loginBtn.addEventListener('click', handleLoginCardClick);
   }
 
   const loginCancelBtn = document.getElementById('loginCancelBtn');
@@ -143,6 +148,33 @@ export function initEventListeners() {
         closeLoginModal();
       }
     });
+  }
+
+  const accountActionModal = document.getElementById('accountActionModal');
+  if (accountActionModal) {
+    accountActionModal.addEventListener('click', (e) => {
+      if (e.target.id === 'accountActionModal') {
+        closeAccountActionModal();
+      }
+    });
+  }
+
+  const accountActionCancelBtn = document.getElementById('accountActionCancelBtn');
+  if (accountActionCancelBtn) {
+    accountActionCancelBtn.addEventListener('click', closeAccountActionModal);
+  }
+
+  const switchAccountBtn = document.getElementById('switchAccountBtn');
+  if (switchAccountBtn) {
+    switchAccountBtn.addEventListener('click', () => {
+      closeAccountActionModal();
+      openLoginModal();
+    });
+  }
+
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', handleLogout);
   }
 
   const loginUserPassport = document.getElementById('loginUserPassport');
@@ -191,6 +223,7 @@ async function handleSaveEvent() {
   
   resetForm();
   resetFormUI();
+  localStorage.setItem(ACTIVE_PAGE_KEY, 'schedule');
   switchToMainPage();
   renderCountdownList();
 }
@@ -234,6 +267,14 @@ async function handleLogin() {
   }
 }
 
+function handleLoginCardClick() {
+  if (state.currentUser?.user_name) {
+    openAccountActionModal();
+  } else {
+    openLoginModal();
+  }
+}
+
 function openLoginModal() {
   const modal = document.getElementById('loginModal');
   const userNameInput = document.getElementById('loginUserName');
@@ -257,6 +298,31 @@ function closeLoginModal() {
   const modal = document.getElementById('loginModal');
   if (!modal) return;
   modal.classList.remove('active');
+}
+
+function openAccountActionModal() {
+  const modal = document.getElementById('accountActionModal');
+  const title = document.getElementById('accountActionTitle');
+  if (title) {
+    title.textContent = `${state.currentUser?.user_name || ''}`;
+  }
+  if (modal) {
+    modal.classList.add('active');
+  }
+}
+
+function closeAccountActionModal() {
+  const modal = document.getElementById('accountActionModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+function handleLogout() {
+  closeAccountActionModal();
+  setCurrentUser(null);
+  updateLoginStatus();
+  showToast('已注销', 'info');
 }
 
 function formatSolarDateCompact(date) {
@@ -333,12 +399,14 @@ async function pullEventsFromCloud(userName) {
 }
 
 function updateLoginStatus() {
-  const status = document.getElementById('loginStatus');
-  if (!status) return;
+  const loginBtn = document.getElementById('loginBtn');
+  if (!loginBtn) return;
+  const title = loginBtn.querySelector('.settings-card-title');
+  if (!title) return;
   if (state.currentUser?.user_name) {
-    status.textContent = `已登录：${state.currentUser.user_name}`;
+    title.textContent = `${state.currentUser.user_name}`;
   } else {
-    status.textContent = '未登录';
+    title.textContent = '登录';
   }
 }
 
@@ -370,8 +438,11 @@ async function handleForceRefresh() {
 
     updateRefreshProgress(100, '刷新完成，正在重载...');
     showToast('资源已刷新，正在重载', 'success');
+    localStorage.setItem(ACTIVE_PAGE_KEY, 'me');
     window.setTimeout(() => {
-      window.location.reload();
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.set(RELOAD_PARAM, stamp);
+      window.location.replace(nextUrl.toString());
     }, 300);
   } catch (error) {
     console.error(error);
@@ -387,6 +458,12 @@ export function init() {
   initEventListeners();
   updateLoginStatus();
   renderCountdownList();
+  const page = localStorage.getItem(ACTIVE_PAGE_KEY);
+  if (page === 'me') {
+    switchToMyPage();
+  } else {
+    switchToMainPage();
+  }
   if (state.currentUser?.user_name) {
     void pullEventsFromCloud(state.currentUser.user_name).catch((error) => {
       console.error(error);
