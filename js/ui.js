@@ -37,9 +37,12 @@ export function renderCountdownList() {
     const safeName = escapeHtml(event.name);
     const display = buildEventDisplay(event, today);
     const itemClass = display.isToday ? 'countdown-item today' : 'countdown-item';
-    const mainLine = display.isToday
+    const mainLine = display.mainLabel
+      ? renderMetricLine(display.mainLabel, display.mainDays, display.mainTone)
+      : '';
+    const todayLine = display.isToday
       ? '<div class="countdown-today">就在今天</div>'
-      : renderMetricLine(display.mainLabel, display.mainDays, display.mainTone);
+      : '';
     const nextLine = display.nextDays !== null
       ? renderMetricLine('距离下一次还有', display.nextDays, 'future')
       : '';
@@ -51,6 +54,7 @@ export function renderCountdownList() {
       <div class="${itemClass}">
         <div class="countdown-title">${safeName}</div>
         ${mainLine}
+        ${todayLine}
         ${nextLine}
         ${lunarNextSolarLine}
       </div>
@@ -148,6 +152,16 @@ function buildEventDisplay(event, today) {
 
   const nextDate = getNextOccurrenceDate(event, today);
   const nextDays = nextDate ? Math.max(0, dayDiff(today, nextDate)) : null;
+  if (nextDays === 0) {
+    return {
+      mainLabel: '已经',
+      mainDays: elapsed,
+      mainTone: 'past',
+      nextDays: null,
+      nextDate,
+      isToday: true,
+    };
+  }
   return {
     mainLabel: '已经',
     mainDays: elapsed,
