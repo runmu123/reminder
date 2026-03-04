@@ -225,6 +225,16 @@ body {
   right: 0;
   max-width: 480px;
   margin: 0 auto;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+html.keyboard-open .nav-bar {
+  display: none !important;
+  pointer-events: none;
+}
+
+html.keyboard-open .container {
+  padding-bottom: 0;
 }
 
 .nav-item {

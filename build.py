@@ -216,6 +216,46 @@ def normalize_hex_color(color, fallback="#ffffff"):
     return fallback
 
 
+def resolve_css_color_value(value, css_vars):
+    if not value:
+        return ""
+    v = value.strip()
+    for _ in range(5):
+        var_match = re.fullmatch(r"var\(\s*(--[a-zA-Z0-9_-]+)\s*\)", v)
+        if not var_match:
+            break
+        var_name = var_match.group(1)
+        v = (css_vars.get(var_name) or "").strip()
+        if not v:
+            return ""
+    if re.fullmatch(r"#[0-9a-fA-F]{3,8}", v):
+        return v
+    return ""
+
+
+def extract_color_from_css(css_content):
+    if not css_content:
+        return ""
+    css_vars = {}
+    for m in re.finditer(r"(--[a-zA-Z0-9_-]+)\s*:\s*([^;]+);", css_content):
+        css_vars[m.group(1)] = m.group(2).strip()
+
+    body_block = re.search(r"body\s*\{([\s\S]*?)\}", css_content, flags=re.MULTILINE)
+    if body_block:
+        block = body_block.group(1)
+        bgc = re.search(r"background-color\s*:\s*([^;]+);", block)
+        if bgc:
+            resolved = resolve_css_color_value(bgc.group(1), css_vars)
+            if resolved:
+                return resolved
+        bg = re.search(r"background\s*:\s*([^;]+);", block)
+        if bg:
+            resolved = resolve_css_color_value(bg.group(1), css_vars)
+            if resolved:
+                return resolved
+    return ""
+
+
 def detect_status_bar_color():
     default_color = "#ffffff"
     index_html_path = os.path.join(ANDROID_BUILD_DIR, "www", "index.html")
@@ -224,6 +264,35 @@ def detect_status_bar_color():
     try:
         with open(index_html_path, "r", encoding="utf-8") as f:
             content = f.read()
+        theme_meta = re.search(
+            r'<meta\s+name=["\']theme-color["\']\s+content=["\']([^"\']+)["\']',
+            content,
+            flags=re.IGNORECASE,
+        )
+        if theme_meta:
+            return normalize_hex_color(theme_meta.group(1), default_color)
+
+        css_href_match = re.search(
+            r'<link[^>]+rel=["\']stylesheet["\'][^>]+href=["\']([^"\']+)["\']',
+            content,
+            flags=re.IGNORECASE,
+        )
+        if css_href_match:
+            css_href = css_href_match.group(1).split("?", 1)[0].strip()
+            css_path = os.path.join(ANDROID_BUILD_DIR, "www", css_href.replace("/", os.sep))
+            if os.path.exists(css_path):
+                with open(css_path, "r", encoding="utf-8") as css_file:
+                    css_color = extract_color_from_css(css_file.read())
+                if css_color:
+                    return normalize_hex_color(css_color, default_color)
+
+        css_default_path = os.path.join(ANDROID_BUILD_DIR, "www", "css", "styles.css")
+        if os.path.exists(css_default_path):
+            with open(css_default_path, "r", encoding="utf-8") as css_file:
+                css_color = extract_color_from_css(css_file.read())
+            if css_color:
+                return normalize_hex_color(css_color, default_color)
+
         var_match = re.search(r"--nav-bg\s*:\s*([^;]+);", content, flags=re.MULTILINE)
         if var_match:
             return normalize_hex_color(var_match.group(1), default_color)
@@ -586,9 +655,26 @@ def configure_android_permissions():
     for permission in permissions:
         if permission not in content:
             content = content.replace("</manifest>", f"    {permission}\n</manifest>")
+
+    soft_input_attr = 'android:windowSoftInputMode="stateHidden|adjustNothing"'
+    if "android:windowSoftInputMode=" in content:
+        content = re.sub(
+            r'android:windowSoftInputMode="[^"]*"',
+            soft_input_attr,
+            content,
+            count=1,
+        )
+    else:
+        content = re.sub(
+            r'(<activity\b[\s\S]*?android:exported="true")',
+            rf'\1\n            {soft_input_attr}',
+            content,
+            count=1,
+        )
+
     with open(manifest_path, "w", encoding="utf-8") as f:
         f.write(content)
-    log_success("Android 权限配置完成")
+    log_success("Android 权限与软键盘模式配置完成")
 
 
 def build():

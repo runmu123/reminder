@@ -16,13 +16,67 @@ const TODO_PRIORITY_WEIGHTS = {
   medium: 1,
   high: 2,
 };
+const STATUS_BAR_DEFAULT_COLOR = '#fff9e6';
 const STATUS_BAR_COLORS = {
-  schedule: '#fff9e6',
-  add: '#fff9e6',
-  todo: '#fff9e6',
-  me: '#fff9e6',
+  schedule: STATUS_BAR_DEFAULT_COLOR,
+  add: STATUS_BAR_DEFAULT_COLOR,
+  todo: STATUS_BAR_DEFAULT_COLOR,
+  me: STATUS_BAR_DEFAULT_COLOR,
   detail: '#e2c38c',
 };
+const STATUS_BAR_TARGETS = {
+  schedule: ['#mainPage', '.container', 'body'],
+  add: ['#addEventPage', '.container', 'body'],
+  todo: ['#todoPage', '.container', 'body'],
+  me: ['#myPage', '.container', 'body'],
+  detail: ['#detailPage', '.container.detail-mode', '.container', 'body'],
+};
+
+function rgbToHex(value) {
+  if (!value) return '';
+  const text = String(value).trim().toLowerCase();
+  if (/^#[0-9a-f]{3}$/.test(text)) {
+    return `#${text[1]}${text[1]}${text[2]}${text[2]}${text[3]}${text[3]}`;
+  }
+  if (/^#[0-9a-f]{6}$/.test(text)) {
+    return text;
+  }
+  const rgba = text.match(/^rgba?\(([^)]+)\)$/);
+  if (!rgba) return '';
+  const nums = rgba[1].split(',').map((item) => Number(item.trim()));
+  if (nums.length < 3 || nums.some((n) => Number.isNaN(n))) return '';
+  const [r, g, b, a] = nums;
+  if (typeof a === 'number' && a <= 0) return '';
+  return `#${[r, g, b].map((n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function extractHexFromGradient(value) {
+  if (!value || value === 'none') return '';
+  const match = String(value).match(/#([0-9a-fA-F]{3,8})/);
+  if (!match) return '';
+  const hex = `#${match[1].toLowerCase()}`;
+  if (/^#[0-9a-f]{3}$/.test(hex) || /^#[0-9a-f]{6}$/.test(hex)) {
+    return rgbToHex(hex);
+  }
+  if (/^#[0-9a-f]{8}$/.test(hex)) {
+    return `#${hex.slice(3)}`;
+  }
+  return '';
+}
+
+function pickStatusBarColorByPage(page) {
+  const selectors = STATUS_BAR_TARGETS[page] || STATUS_BAR_TARGETS.schedule;
+  for (const selector of selectors) {
+    const el = document.querySelector(selector);
+    if (!el) continue;
+    const style = window.getComputedStyle(el);
+    const fromBgColor = rgbToHex(style.backgroundColor);
+    if (fromBgColor) return fromBgColor;
+    const fromGradient = extractHexFromGradient(style.backgroundImage);
+    if (fromGradient) return fromGradient;
+  }
+  return STATUS_BAR_COLORS[page] || STATUS_BAR_DEFAULT_COLOR;
+}
 
 function setThemeColor(color) {
   if (!color) return;
@@ -36,8 +90,12 @@ function setThemeColor(color) {
 }
 
 export function updateStatusBarTheme(page = 'schedule') {
-  const color = STATUS_BAR_COLORS[page] || STATUS_BAR_COLORS.schedule;
+  const color = pickStatusBarColorByPage(page);
   setThemeColor(color);
+  const statusBar = window?.Capacitor?.Plugins?.StatusBar;
+  if (statusBar?.setBackgroundColor) {
+    statusBar.setBackgroundColor({ color }).catch(() => {});
+  }
 }
 
 export function renderClock() {
