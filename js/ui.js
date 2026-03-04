@@ -989,7 +989,9 @@ function updateSelectedDate() {
 
 export function updateRepeatButton() {
   const options = ['不重复', '每周', '每月', '每年'];
-  document.getElementById('repeatType').textContent = options[state.currentRepeatIndex] + ' ▾';
+  const select = document.getElementById('repeatType');
+  if (!select) return;
+  select.value = options[state.currentRepeatIndex] || options[0];
 }
 
 export function resetFormUI() {

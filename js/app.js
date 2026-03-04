@@ -117,8 +117,10 @@ export function initEventListeners() {
     });
   });
 
-  document.getElementById('repeatType').addEventListener('click', () => {
-    state.currentRepeatIndex = (state.currentRepeatIndex + 1) % REPEAT_OPTIONS.length;
+  document.getElementById('repeatType').addEventListener('change', (e) => {
+    const value = e.target.value;
+    const index = REPEAT_OPTIONS.indexOf(value);
+    state.currentRepeatIndex = index >= 0 ? index : 0;
     updateRepeatButton();
   });
 
