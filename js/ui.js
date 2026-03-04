@@ -803,6 +803,11 @@ function updateWheelPosition(wheelInner, index) {
   wheelInner.style.transform = `translateY(${offset}px)`;
 }
 
+function getWheelOffsetY(transform) {
+  const match = String(transform || '').match(/translateY\((-?\d+(?:\.\d+)?)px\)/);
+  return match ? Number.parseFloat(match[1]) : 0;
+}
+
 function attachWheelEvents(wheelInner, type) {
   if (wheelInner._removeWheelListeners) {
     wheelInner._removeWheelListeners();
@@ -815,9 +820,7 @@ function attachWheelEvents(wheelInner, type) {
   const handleStart = (clientY) => {
     isDragging = true;
     startY = clientY;
-    const transform = wheelInner.style.transform;
-    const match = transform.match(/translateY\((-?\d+)px\)/);
-    currentY = match ? parseInt(match[1]) : 0;
+    currentY = getWheelOffsetY(wheelInner.style.transform);
   };
 
   const handleMove = (clientY) => {
@@ -834,9 +837,7 @@ function attachWheelEvents(wheelInner, type) {
     if (!isDragging) return;
     isDragging = false;
     const items = wheelInner.querySelectorAll('.date-item');
-    const transform = wheelInner.style.transform;
-    const match = transform.match(/translateY\((-?\d+)px\)/);
-    const currentOffset = match ? parseInt(match[1]) : 0;
+    const currentOffset = getWheelOffsetY(wheelInner.style.transform);
     const newIndex = Math.round((75 - currentOffset) / 50);
     const clampedIndex = Math.max(0, Math.min(items.length - 1, newIndex));
 
@@ -896,9 +897,7 @@ function attachWheelEvents(wheelInner, type) {
     if (isDragging) return;
 
     const items = wheelInner.querySelectorAll('.date-item');
-    const transform = wheelInner.style.transform;
-    const match = transform.match(/translateY\((-?\d+)px\)/);
-    const currentOffset = match ? parseInt(match[1]) : 0;
+    const currentOffset = getWheelOffsetY(wheelInner.style.transform);
     // 反转滚轮方向：滚轮向下时选择后续项，向上时选择前序项
     const deltaY = -Math.sign(e.deltaY) * 20;
     const newY = currentOffset + deltaY;
@@ -909,9 +908,7 @@ function attachWheelEvents(wheelInner, type) {
     // 自动回弹
     clearTimeout(wheelInner.autoScrollTimer);
     wheelInner.autoScrollTimer = setTimeout(() => {
-      const finalOffset = wheelInner.style.transform;
-      const finalMatch = finalOffset.match(/translateY\((-?\d+)px\)/);
-      const finalCurrent = finalMatch ? parseInt(finalMatch[1]) : 0;
+      const finalCurrent = getWheelOffsetY(wheelInner.style.transform);
       const finalIndex = Math.round((75 - finalCurrent) / 50);
       const finalClamped = Math.max(0, Math.min(items.length - 1, finalIndex));
 
