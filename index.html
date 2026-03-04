@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#fff9e6">
     <title>日程提醒</title>
     <style>
         html.app-preload body {
@@ -87,14 +88,17 @@
                 <div class="form-row">
                     <div class="form-label">
                         <i>🔄</i>
-                        <span>重复类型 (可选每周、每月、每年)</span>
+                        <span>重复类型</span>
                     </div>
-                    <select class="select-btn" id="repeatType">
-                        <option value="不重复">不重复</option>
-                        <option value="每周">每周</option>
-                        <option value="每月">每月</option>
-                        <option value="每年">每年</option>
-                    </select>
+                    <div class="repeat-select-wrap">
+                        <button class="select-btn repeat-select-btn" id="repeatType" type="button" aria-expanded="false">不重复 ▾</button>
+                        <div class="repeat-dropdown" id="repeatDropdown">
+                            <button class="repeat-option active" type="button" data-value="不重复">不重复</button>
+                            <button class="repeat-option" type="button" data-value="每周">每周</button>
+                            <button class="repeat-option" type="button" data-value="每月">每月</button>
+                            <button class="repeat-option" type="button" data-value="每年">每年</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 

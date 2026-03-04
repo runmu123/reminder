@@ -23,6 +23,7 @@ import {
   renderTodoList,
   renderTodoStats,
   applyTodoFilter,
+  updateStatusBarTheme,
 } from './ui.js';
 
 const REPEAT_OPTIONS = ['不重复', '每周', '每月', '每年'];
@@ -117,12 +118,34 @@ export function initEventListeners() {
     });
   });
 
-  document.getElementById('repeatType').addEventListener('change', (e) => {
-    const value = e.target.value;
-    const index = REPEAT_OPTIONS.indexOf(value);
-    state.currentRepeatIndex = index >= 0 ? index : 0;
-    updateRepeatButton();
-  });
+  const repeatTypeBtn = document.getElementById('repeatType');
+  const repeatDropdown = document.getElementById('repeatDropdown');
+  if (repeatTypeBtn && repeatDropdown) {
+    repeatTypeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = repeatDropdown.classList.toggle('active');
+      repeatTypeBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+
+    repeatDropdown.addEventListener('click', (e) => {
+      const option = e.target.closest('.repeat-option[data-value]');
+      if (!option) return;
+      const value = option.dataset.value || REPEAT_OPTIONS[0];
+      setRepeatType(value);
+      closeRepeatDropdown();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('.repeat-select-wrap')) return;
+      closeRepeatDropdown();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeRepeatDropdown();
+      }
+    });
+  }
 
   document.getElementById('saveBtn').addEventListener('click', handleSaveEvent);
   document.getElementById('countdownList').addEventListener('click', handleCountdownItemClick);
@@ -369,6 +392,20 @@ function clearSearch() {
   }
   closeSearchModal();
   renderCountdownList();
+}
+
+function setRepeatType(value) {
+  const index = REPEAT_OPTIONS.indexOf(value);
+  state.currentRepeatIndex = index >= 0 ? index : 0;
+  updateRepeatButton();
+}
+
+function closeRepeatDropdown() {
+  const repeatTypeBtn = document.getElementById('repeatType');
+  const repeatDropdown = document.getElementById('repeatDropdown');
+  if (!repeatDropdown || !repeatTypeBtn) return;
+  repeatDropdown.classList.remove('active');
+  repeatTypeBtn.setAttribute('aria-expanded', 'false');
 }
 
 function handleAddTodoQuick() {
@@ -677,6 +714,7 @@ function openDetailPage(index) {
   document.getElementById('addEventPage').classList.remove('active');
   document.getElementById('myPage').classList.remove('active');
   document.getElementById('detailPage').classList.add('active');
+  updateStatusBarTheme('detail');
   scheduleFitDetailNumberWidths();
 }
 

@@ -16,6 +16,29 @@ const TODO_PRIORITY_WEIGHTS = {
   medium: 1,
   high: 2,
 };
+const STATUS_BAR_COLORS = {
+  schedule: '#fff9e6',
+  add: '#fff9e6',
+  todo: '#fff9e6',
+  me: '#fff9e6',
+  detail: '#e2c38c',
+};
+
+function setThemeColor(color) {
+  if (!color) return;
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.setAttribute('name', 'theme-color');
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute('content', color);
+}
+
+export function updateStatusBarTheme(page = 'schedule') {
+  const color = STATUS_BAR_COLORS[page] || STATUS_BAR_COLORS.schedule;
+  setThemeColor(color);
+}
 
 export function renderClock() {
   const now = new Date();
@@ -501,6 +524,7 @@ export function switchToAddPage() {
   const detailPage = document.getElementById('detailPage');
   if (detailPage) detailPage.classList.remove('active');
   setActiveNav('schedule');
+  updateStatusBarTheme('add');
   renderTargetDate();
   updateCalendarToggle();
 }
@@ -515,6 +539,7 @@ export function switchToMainPage() {
   const detailPage = document.getElementById('detailPage');
   if (detailPage) detailPage.classList.remove('active');
   setActiveNav('schedule');
+  updateStatusBarTheme('schedule');
 }
 
 export function switchToMyPage() {
@@ -527,6 +552,7 @@ export function switchToMyPage() {
   const detailPage = document.getElementById('detailPage');
   if (detailPage) detailPage.classList.remove('active');
   setActiveNav('me');
+  updateStatusBarTheme('me');
 }
 
 export function switchToTodoPage() {
@@ -539,6 +565,7 @@ export function switchToTodoPage() {
   const detailPage = document.getElementById('detailPage');
   if (detailPage) detailPage.classList.remove('active');
   setActiveNav('todo');
+  updateStatusBarTheme('todo');
 }
 
 export function setActiveNav(page) {
@@ -986,9 +1013,18 @@ function updateSelectedDate() {
 
 export function updateRepeatButton() {
   const options = ['不重复', '每周', '每月', '每年'];
-  const select = document.getElementById('repeatType');
-  if (!select) return;
-  select.value = options[state.currentRepeatIndex] || options[0];
+  const button = document.getElementById('repeatType');
+  const value = options[state.currentRepeatIndex] || options[0];
+  if (button) {
+    button.textContent = `${value} ▾`;
+  }
+  document.querySelectorAll('#repeatDropdown .repeat-option').forEach((item) => {
+    if (item.dataset.value === value) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
 }
 
 export function resetFormUI() {
