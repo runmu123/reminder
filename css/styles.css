@@ -297,6 +297,189 @@ body {
   display: block;
 }
 
+.todo-page {
+  display: none;
+  padding: 14px 14px 12px;
+}
+
+.todo-page.active {
+  display: block;
+}
+
+.todo-header {
+  font-size: 24px;
+  color: var(--text-color);
+  margin-bottom: 12px;
+}
+
+.todo-quick-add {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.todo-input {
+  border: 1px solid #dbe2f2;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+}
+
+.todo-input:focus {
+  border-color: #9bb9ff;
+  box-shadow: 0 0 0 2px rgba(78, 140, 255, 0.12);
+}
+
+.todo-add-btn {
+  border: none;
+  border-radius: 10px;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 14px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.todo-filter-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.todo-filter-btn {
+  border: 1px solid #dbe2f2;
+  background: #fff;
+  color: #5b6781;
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.todo-filter-btn.active {
+  background: #eaf1ff;
+  border-color: #b8cbff;
+  color: #2f63c5;
+}
+
+.todo-stats {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 8px 2px 10px;
+}
+
+.todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 80px;
+}
+
+.todo-item {
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 10px;
+  align-items: start;
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: var(--shadow);
+}
+
+.todo-item.completed {
+  opacity: 0.65;
+}
+
+.todo-toggle {
+  border: 1px solid #c8d7f5;
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: #f5f8ff;
+  color: #2f63c5;
+  font-size: 14px;
+  cursor: pointer;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.todo-content {
+  cursor: pointer;
+}
+
+.todo-title {
+  font-size: 15px;
+  color: var(--text-color);
+  line-height: 1.35;
+  margin-bottom: 5px;
+}
+
+.todo-item.completed .todo-title {
+  text-decoration: line-through;
+}
+
+.todo-note {
+  color: #5e6881;
+  font-size: 12px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.todo-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.todo-priority {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.todo-priority.low {
+  background: #eef2f7;
+  color: #475569;
+}
+
+.todo-priority.medium {
+  background: #e8f0ff;
+  color: #2f63c5;
+}
+
+.todo-priority.high {
+  background: #ffe8e8;
+  color: #b42318;
+}
+
+.todo-due {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.todo-due.overdue {
+  color: var(--past-color);
+}
+
+.todo-empty {
+  margin-top: 6px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px dashed #c8d6f3;
+  border-radius: 12px;
+  padding: 18px 12px;
+  text-align: center;
+  color: #5b6b8b;
+  font-size: 14px;
+}
+
 .my-page,
 .my-page * {
   font-weight: 700;
@@ -1169,6 +1352,101 @@ input:checked + .slider:before {
 
 .search-modal.active {
   display: flex;
+}
+
+.todo-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2340;
+  background: rgba(0, 0, 0, 0.35);
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.todo-modal.active {
+  display: flex;
+}
+
+.todo-modal-card {
+  width: min(380px, 100%);
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+}
+
+.todo-modal-title {
+  font-size: 18px;
+  color: var(--text-color);
+  margin-bottom: 10px;
+}
+
+.todo-modal-input,
+.todo-modal-textarea,
+.todo-modal-date,
+.todo-modal-select {
+  width: 100%;
+  border: 1px solid #dbe2f2;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+}
+
+.todo-modal-input,
+.todo-modal-textarea {
+  margin-bottom: 10px;
+}
+
+.todo-modal-textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+
+.todo-modal-row {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.todo-modal-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.todo-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.todo-modal-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.todo-modal-btn.delete {
+  margin-right: auto;
+  background: #ffe9e9;
+  color: #b42318;
+}
+
+.todo-modal-btn.cancel {
+  background: #f0f2f6;
+  color: #4b5563;
+}
+
+.todo-modal-btn.confirm {
+  background: var(--primary-color);
+  color: #fff;
 }
 
 .search-card {

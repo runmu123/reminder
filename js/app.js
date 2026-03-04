@@ -1,4 +1,4 @@
-import { state, addEvent, resetForm, setEvents, setCurrentUser, saveEvents } from './state.js';
+import { state, addEvent, resetForm, setEvents, setCurrentUser, saveEvents, addTodo, updateTodo, removeTodo } from './state.js';
 import { showToast } from './toast.js';
 import { loginOrRegister, upsertEvent, upsertUserEventLink, fetchUserEvents, deleteUserEventLink, deleteEventByName } from './supabase.js';
 import {
@@ -12,13 +12,17 @@ import {
   switchToAddPage,
   switchToMainPage,
   switchToMyPage,
+  switchToTodoPage,
   openDatePicker,
   closeDatePicker,
   updateRepeatButton,
   resetFormUI,
   showRefreshOverlay,
   updateRefreshProgress,
-  hideRefreshOverlay
+  hideRefreshOverlay,
+  renderTodoList,
+  renderTodoStats,
+  applyTodoFilter,
 } from './ui.js';
 
 const REPEAT_OPTIONS = ['不重复', '每周', '每月', '每年'];
@@ -44,6 +48,7 @@ let detailSwipeIndex = 0;
 let detailSwipeCardCount = 0;
 let detailSwipeGoTo = null;
 let detailNumberFitRaf = null;
+let editingTodoId = null;
 
 export function initClock() {
   renderDate();
@@ -87,7 +92,9 @@ export function initEventListeners() {
   });
 
   document.getElementById('navTodo').addEventListener('click', () => {
-    showToast('待办功能开发中', 'info');
+    localStorage.setItem(ACTIVE_PAGE_KEY, 'todo');
+    switchToTodoPage();
+    renderTodoList();
   });
 
   document.getElementById('navApps').addEventListener('click', () => {
@@ -261,6 +268,71 @@ export function initEventListeners() {
       }
     });
   }
+
+  const todoQuickAddBtn = document.getElementById('todoQuickAddBtn');
+  if (todoQuickAddBtn) {
+    todoQuickAddBtn.addEventListener('click', handleAddTodoQuick);
+  }
+
+  const todoQuickInput = document.getElementById('todoQuickInput');
+  if (todoQuickInput) {
+    todoQuickInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAddTodoQuick();
+      }
+    });
+  }
+
+  document.querySelectorAll('#todoFilterBar .todo-filter-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      applyTodoFilter(btn.dataset.filter || 'all');
+    });
+  });
+
+  const todoList = document.getElementById('todoList');
+  if (todoList) {
+    todoList.addEventListener('click', (e) => {
+      const item = e.target.closest('.todo-item[data-id]');
+      if (!item) return;
+      const id = item.dataset.id;
+      if (!id) return;
+      const actionEl = e.target.closest('[data-action]');
+      if (!actionEl) return;
+      const action = actionEl.dataset.action;
+      if (action === 'toggle') {
+        handleToggleTodo(id);
+      } else if (action === 'edit') {
+        openTodoModal(id);
+      }
+    });
+  }
+
+  const todoModal = document.getElementById('todoModal');
+  if (todoModal) {
+    todoModal.addEventListener('click', (e) => {
+      if (e.target.id === 'todoModal') {
+        closeTodoModal();
+      }
+    });
+  }
+
+  const todoModalCancelBtn = document.getElementById('todoModalCancelBtn');
+  if (todoModalCancelBtn) {
+    todoModalCancelBtn.addEventListener('click', closeTodoModal);
+  }
+
+  const todoModalSaveBtn = document.getElementById('todoModalSaveBtn');
+  if (todoModalSaveBtn) {
+    todoModalSaveBtn.addEventListener('click', handleSaveTodoFromModal);
+  }
+
+  const todoModalDeleteBtn = document.getElementById('todoModalDeleteBtn');
+  if (todoModalDeleteBtn) {
+    todoModalDeleteBtn.addEventListener('click', () => {
+      void handleDeleteTodoFromModal();
+    });
+  }
 }
 
 function openSearchModal() {
@@ -295,6 +367,140 @@ function clearSearch() {
   }
   closeSearchModal();
   renderCountdownList();
+}
+
+function handleAddTodoQuick() {
+  const input = document.getElementById('todoQuickInput');
+  const title = input?.value?.trim() || '';
+  if (!title) {
+    showToast('请输入待办标题', 'error');
+    return;
+  }
+
+  const now = new Date().toISOString();
+  addTodo({
+    id: `todo_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+    title,
+    note: '',
+    dueDate: '',
+    priority: 'medium',
+    status: 'active',
+    createdAt: now,
+    updatedAt: now,
+    completedAt: null,
+  });
+
+  if (input) {
+    input.value = '';
+    input.focus();
+  }
+  renderTodoList();
+}
+
+function handleToggleTodo(id) {
+  const todo = state.todos.find((item) => item.id === id);
+  if (!todo) return;
+  const isCompleted = todo.status === 'completed';
+  updateTodo(id, {
+    status: isCompleted ? 'active' : 'completed',
+    completedAt: isCompleted ? null : new Date().toISOString(),
+  });
+  renderTodoList();
+}
+
+function openTodoModal(id = null) {
+  const modal = document.getElementById('todoModal');
+  const titleEl = document.getElementById('todoModalTitle');
+  const taskTitleEl = document.getElementById('todoModalTaskTitle');
+  const noteEl = document.getElementById('todoModalTaskNote');
+  const dueDateEl = document.getElementById('todoModalTaskDueDate');
+  const priorityEl = document.getElementById('todoModalTaskPriority');
+  const deleteBtn = document.getElementById('todoModalDeleteBtn');
+  if (!modal || !taskTitleEl || !noteEl || !dueDateEl || !priorityEl || !deleteBtn || !titleEl) return;
+
+  editingTodoId = id;
+  if (!id) {
+    titleEl.textContent = '新增待办';
+    taskTitleEl.value = '';
+    noteEl.value = '';
+    dueDateEl.value = '';
+    priorityEl.value = 'medium';
+    deleteBtn.style.visibility = 'hidden';
+  } else {
+    const todo = state.todos.find((item) => item.id === id);
+    if (!todo) return;
+    titleEl.textContent = '编辑待办';
+    taskTitleEl.value = todo.title || '';
+    noteEl.value = todo.note || '';
+    dueDateEl.value = todo.dueDate || '';
+    priorityEl.value = todo.priority || 'medium';
+    deleteBtn.style.visibility = 'visible';
+  }
+
+  modal.classList.add('active');
+  taskTitleEl.focus();
+  taskTitleEl.select();
+}
+
+function closeTodoModal() {
+  editingTodoId = null;
+  const modal = document.getElementById('todoModal');
+  if (modal) {
+    modal.classList.remove('active');
+  }
+}
+
+function handleSaveTodoFromModal() {
+  const taskTitleEl = document.getElementById('todoModalTaskTitle');
+  const noteEl = document.getElementById('todoModalTaskNote');
+  const dueDateEl = document.getElementById('todoModalTaskDueDate');
+  const priorityEl = document.getElementById('todoModalTaskPriority');
+  if (!taskTitleEl || !noteEl || !dueDateEl || !priorityEl) return;
+
+  const title = taskTitleEl.value.trim();
+  if (!title) {
+    showToast('待办标题不能为空', 'error');
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const patch = {
+    title,
+    note: noteEl.value.trim(),
+    dueDate: dueDateEl.value || '',
+    priority: priorityEl.value || 'medium',
+  };
+
+  if (editingTodoId) {
+    updateTodo(editingTodoId, patch);
+    showToast('待办已更新', 'success');
+  } else {
+    addTodo({
+      id: `todo_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+      status: 'active',
+      completedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      ...patch,
+    });
+    showToast('待办已添加', 'success');
+  }
+
+  closeTodoModal();
+  renderTodoList();
+}
+
+async function handleDeleteTodoFromModal() {
+  if (!editingTodoId) return;
+  const targetTodoId = editingTodoId;
+  const todo = state.todos.find((item) => item.id === targetTodoId);
+  if (!todo) return;
+  closeTodoModal();
+  const ok = await openConfirmModal(`确认删除待办「${todo.title}」吗？删除后不可恢复。`);
+  if (!ok) return;
+  removeTodo(targetTodoId);
+  renderTodoList();
+  showToast('待办已删除', 'success');
 }
 
 async function handleSaveEvent() {
@@ -929,6 +1135,9 @@ function getCurrentActivePage() {
   if (document.getElementById('detailPage')?.classList.contains('active')) {
     return 'schedule';
   }
+  if (document.getElementById('todoPage')?.classList.contains('active')) {
+    return 'todo';
+  }
   if (document.getElementById('myPage')?.classList.contains('active')) {
     return 'me';
   }
@@ -940,8 +1149,12 @@ export function init() {
   initEventListeners();
   updateLoginStatus();
   renderCountdownList();
+  renderTodoStats();
+  renderTodoList();
   const page = localStorage.getItem(ACTIVE_PAGE_KEY);
-  if (page === 'me') {
+  if (page === 'todo') {
+    switchToTodoPage();
+  } else if (page === 'me') {
     switchToMyPage();
   } else {
     switchToMainPage();

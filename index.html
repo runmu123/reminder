@@ -124,6 +124,22 @@
             </button>
         </div>
 
+        <div class="todo-page" id="todoPage">
+            <div class="todo-header">待办</div>
+            <div class="todo-quick-add">
+                <input class="todo-input" id="todoQuickInput" type="text" placeholder="输入待办后回车或点击添加">
+                <button class="todo-add-btn" id="todoQuickAddBtn" type="button">添加</button>
+            </div>
+            <div class="todo-filter-bar" id="todoFilterBar">
+                <button class="todo-filter-btn active" data-filter="all" type="button">全部</button>
+                <button class="todo-filter-btn" data-filter="active" type="button">未完成</button>
+                <button class="todo-filter-btn" data-filter="completed" type="button">已完成</button>
+                <button class="todo-filter-btn" data-filter="today" type="button">今天</button>
+            </div>
+            <div class="todo-stats" id="todoStats"></div>
+            <div class="todo-list" id="todoList"></div>
+        </div>
+
         <div class="detail-page" id="detailPage">
             <div class="detail-back" id="detailBackBtn">←</div>
             <div class="detail-swiper" id="detailSwiper"></div>
@@ -232,6 +248,31 @@
                 <button class="search-btn-action clear" id="searchClearBtn" type="button">清空</button>
                 <button class="search-btn-action cancel" id="searchCancelBtn" type="button">取消</button>
                 <button class="search-btn-action confirm" id="searchConfirmBtn" type="button">搜索</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="todo-modal" id="todoModal">
+        <div class="todo-modal-card">
+            <div class="todo-modal-title" id="todoModalTitle">新增待办</div>
+            <input class="todo-modal-input" id="todoModalTaskTitle" type="text" placeholder="请输入待办标题">
+            <textarea class="todo-modal-textarea" id="todoModalTaskNote" placeholder="备注（可选）"></textarea>
+            <div class="todo-modal-row">
+                <label class="todo-modal-label" for="todoModalTaskDueDate">截止日期</label>
+                <input class="todo-modal-date" id="todoModalTaskDueDate" type="date">
+            </div>
+            <div class="todo-modal-row">
+                <label class="todo-modal-label" for="todoModalTaskPriority">优先级</label>
+                <select class="todo-modal-select" id="todoModalTaskPriority">
+                    <option value="low">低</option>
+                    <option value="medium" selected>中</option>
+                    <option value="high">高</option>
+                </select>
+            </div>
+            <div class="todo-modal-actions">
+                <button class="todo-modal-btn delete" id="todoModalDeleteBtn" type="button">删除</button>
+                <button class="todo-modal-btn cancel" id="todoModalCancelBtn" type="button">取消</button>
+                <button class="todo-modal-btn confirm" id="todoModalSaveBtn" type="button">保存</button>
             </div>
         </div>
     </div>

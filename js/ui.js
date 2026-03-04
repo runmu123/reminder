@@ -1,4 +1,4 @@
-import { state } from './state.js';
+import { state, setTodoFilter } from './state.js';
 import { getDaysDiff, escapeHtml } from './utils.js';
 
 const LUNAR_MONTH_NAMES = ['正月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '冬月', '腊月'];
@@ -6,6 +6,16 @@ const LUNAR_DAY_NAMES = ['初一', '初二', '初三', '初四', '初五', '初�
   '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十',
   '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
 const LUNAR_YEAR_CACHE = new Map();
+const TODO_PRIORITY_LABELS = {
+  low: '低',
+  medium: '中',
+  high: '高',
+};
+const TODO_PRIORITY_WEIGHTS = {
+  low: 0,
+  medium: 1,
+  high: 2,
+};
 
 export function renderClock() {
   const now = new Date();
@@ -100,6 +110,162 @@ export function renderCountdownList() {
   }
 
   container.innerHTML = html;
+}
+
+export function renderTodoStats() {
+  const statsEl = document.getElementById('todoStats');
+  if (!statsEl) return;
+  const total = state.todos.length;
+  const active = state.todos.filter((item) => item.status !== 'completed').length;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayKey = formatTodoDateKey(today);
+  const todayDue = state.todos.filter((item) => item.dueDate === todayKey && item.status !== 'completed').length;
+  statsEl.textContent = `全部 ${total} · 未完成 ${active} · 今日到期 ${todayDue}`;
+}
+
+export function renderTodoList() {
+  const container = document.getElementById('todoList');
+  if (!container) return;
+
+  const list = getVisibleTodoList();
+  if (list.length === 0) {
+    const text = state.todoFilter === 'all' ? '暂无待办，输入后回车添加' : '当前筛选下暂无待办';
+    container.innerHTML = `<div class="todo-empty">${text}</div>`;
+    renderTodoStats();
+    syncTodoFilterButtons();
+    return;
+  }
+
+  container.innerHTML = list.map((todo) => {
+    const title = escapeHtml(todo.title || '');
+    const note = todo.note ? `<div class="todo-note">${escapeHtml(todo.note)}</div>` : '';
+    const dueText = formatTodoDueDate(todo.dueDate);
+    const dueClass = dueText.isOverdue ? ' overdue' : '';
+    const completedClass = todo.status === 'completed' ? ' completed' : '';
+    const priority = todo.priority || 'medium';
+    const priorityLabel = TODO_PRIORITY_LABELS[priority] || TODO_PRIORITY_LABELS.medium;
+
+    return `
+      <div class="todo-item${completedClass}" data-id="${escapeHtml(todo.id)}">
+        <button class="todo-toggle" data-action="toggle" aria-label="切换完成状态" type="button">${todo.status === 'completed' ? '✓' : ''}</button>
+        <div class="todo-content" data-action="edit">
+          <div class="todo-title">${title}</div>
+          ${note}
+          <div class="todo-meta">
+            <span class="todo-priority ${priority}">优先级 ${priorityLabel}</span>
+            <span class="todo-due${dueClass}">${dueText.text}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  renderTodoStats();
+  syncTodoFilterButtons();
+}
+
+export function applyTodoFilter(filter) {
+  setTodoFilter(filter);
+  syncTodoFilterButtons();
+  renderTodoList();
+}
+
+function syncTodoFilterButtons() {
+  document.querySelectorAll('#todoFilterBar .todo-filter-btn').forEach((btn) => {
+    if (btn.dataset.filter === state.todoFilter) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+function getVisibleTodoList() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayKey = formatTodoDateKey(today);
+
+  const filtered = state.todos.filter((todo) => {
+    if (state.todoFilter === 'active') {
+      return todo.status !== 'completed';
+    }
+    if (state.todoFilter === 'completed') {
+      return todo.status === 'completed';
+    }
+    if (state.todoFilter === 'today') {
+      return todo.dueDate === todayKey;
+    }
+    return true;
+  });
+
+  return filtered.sort((a, b) => sortTodos(a, b));
+}
+
+function sortTodos(a, b) {
+  const aCompleted = a.status === 'completed';
+  const bCompleted = b.status === 'completed';
+  if (aCompleted !== bCompleted) {
+    return aCompleted ? 1 : -1;
+  }
+
+  const aDueWeight = a.dueDate ? 0 : 1;
+  const bDueWeight = b.dueDate ? 0 : 1;
+  if (aDueWeight !== bDueWeight) {
+    return aDueWeight - bDueWeight;
+  }
+
+  if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) {
+    return a.dueDate.localeCompare(b.dueDate);
+  }
+
+  const aPriority = TODO_PRIORITY_WEIGHTS[a.priority] ?? 1;
+  const bPriority = TODO_PRIORITY_WEIGHTS[b.priority] ?? 1;
+  if (aPriority !== bPriority) {
+    return bPriority - aPriority;
+  }
+
+  return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+}
+
+function formatTodoDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatTodoDueDate(value) {
+  if (!value) {
+    return {
+      text: '无截止日期',
+      isOverdue: false,
+    };
+  }
+  const date = new Date(`${value}T00:00:00`);
+  if (!Number.isFinite(date.getTime())) {
+    return {
+      text: '日期格式错误',
+      isOverdue: false,
+    };
+  }
+  const days = getDaysDiff(date);
+  if (days < 0) {
+    return {
+      text: `${value} · 已逾期 ${Math.abs(days)} 天`,
+      isOverdue: true,
+    };
+  }
+  if (days === 0) {
+    return {
+      text: `${value} · 今天`,
+      isOverdue: false,
+    };
+  }
+  return {
+    text: `${value} · 还有 ${days} 天`,
+    isOverdue: false,
+  };
 }
 
 export function getEventDisplayData(event, today = new Date()) {
@@ -330,6 +496,8 @@ export function switchToAddPage() {
   document.getElementById('mainPage').classList.add('hidden');
   document.getElementById('addEventPage').classList.add('active');
   document.getElementById('myPage').classList.remove('active');
+  const todoPage = document.getElementById('todoPage');
+  if (todoPage) todoPage.classList.remove('active');
   const detailPage = document.getElementById('detailPage');
   if (detailPage) detailPage.classList.remove('active');
   setActiveNav('schedule');
@@ -342,6 +510,8 @@ export function switchToMainPage() {
   document.getElementById('mainPage').classList.remove('hidden');
   document.getElementById('addEventPage').classList.remove('active');
   document.getElementById('myPage').classList.remove('active');
+  const todoPage = document.getElementById('todoPage');
+  if (todoPage) todoPage.classList.remove('active');
   const detailPage = document.getElementById('detailPage');
   if (detailPage) detailPage.classList.remove('active');
   setActiveNav('schedule');
@@ -352,9 +522,23 @@ export function switchToMyPage() {
   document.getElementById('mainPage').classList.add('hidden');
   document.getElementById('addEventPage').classList.remove('active');
   document.getElementById('myPage').classList.add('active');
+  const todoPage = document.getElementById('todoPage');
+  if (todoPage) todoPage.classList.remove('active');
   const detailPage = document.getElementById('detailPage');
   if (detailPage) detailPage.classList.remove('active');
   setActiveNav('me');
+}
+
+export function switchToTodoPage() {
+  document.querySelector('.container')?.classList.remove('detail-mode');
+  document.getElementById('mainPage').classList.add('hidden');
+  document.getElementById('addEventPage').classList.remove('active');
+  document.getElementById('myPage').classList.remove('active');
+  const todoPage = document.getElementById('todoPage');
+  if (todoPage) todoPage.classList.add('active');
+  const detailPage = document.getElementById('detailPage');
+  if (detailPage) detailPage.classList.remove('active');
+  setActiveNav('todo');
 }
 
 export function setActiveNav(page) {
